@@ -1,0 +1,350 @@
+/*
+ * _tiptap-theme-overrides.scss
+ *
+ * Remaps TipTap's `--tt-*` color tokens to the app's industrial control panel
+ * palette (dark charcoal-blue + amber primary). All overrides target :root so
+ * they reach portaled popovers/dropdowns that render outside .tiptap-editor-scope.
+ *
+ * Strategy: we only override *color* tokens; spacing, radius, transition, and
+ * shadow tokens from _variables.scss are left as-is (or remapped where relevant).
+ *
+ * The app is always in dark mode (:root and .dark share the same CSS vars in
+ * index.css), so we write a single :root block — no separate .dark variant needed.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. Remap base color aliases that TipTap's downstream tokens reference
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  /* Override --white / --black aliases used by toolbar, badge, popover defaults */
+  --white: hsl(var(--foreground));
+  --black: hsl(var(--background));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. Global editor surface tokens
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  /* Editor page / wrapper background */
+  --tt-bg-color: hsl(var(--background));
+
+  /* Borders and dividers */
+  --tt-border-color: hsl(var(--border));
+  --tt-border-color-tint: hsl(var(--border) / 0.5);
+
+  /* Sidebar (not rendered in our embedded form field, but set for consistency) */
+  --tt-sidebar-bg-color: hsl(var(--card));
+
+  /* Scrollbar */
+  --tt-scrollbar-color: hsl(var(--border));
+
+  /* Cursor — amber accent so it stands out */
+  --tt-cursor-color: hsl(var(--primary));
+
+  /* Text selection highlight — amber at low opacity */
+  --tt-selection-color: hsl(var(--primary) / 0.25);
+
+  /* Card surfaces used by floating toolbars and embedded cards */
+  --tt-card-bg-color: hsl(var(--card));
+  --tt-card-border-color: hsl(var(--border));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. Toolbar tokens
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-toolbar-bg-color: hsl(var(--card));
+  --tt-toolbar-border-color: hsl(var(--border));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. Dropdown-menu tokens  (portaled — must be :root)
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-dropdown-menu-bg-color: hsl(var(--popover));
+  --tt-dropdown-menu-text-color: hsl(var(--popover-foreground));
+  --tt-dropdown-menu-label-color: hsl(var(--muted-foreground));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   5. Popover tokens  (portaled — must be :root)
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-popover-bg-color: hsl(var(--popover));
+  --tt-popover-border-color: hsl(var(--border));
+  --tt-popover-text-color: hsl(var(--popover-foreground));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   6. Card primitive tokens  (portaled — must be :root)
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tiptap-card-bg-color: hsl(var(--popover));
+  --tiptap-card-border-color: hsl(var(--border));
+  --tiptap-card-group-label-color: hsl(var(--muted-foreground));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   7. Input primitive tokens
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-input-placeholder: hsl(var(--muted-foreground));
+  --tt-input-border: hsl(var(--border));
+  --tt-input-border-focus: hsl(var(--ring));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   8. Tooltip tokens
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-tooltip-bg: hsl(var(--card));
+  --tt-tooltip-text: hsl(var(--card-foreground));
+  --tt-kbd: hsl(var(--muted-foreground));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   9. Theme text token (used by simple-editor-wrapper)
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-theme-text: hsl(var(--foreground));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   10. Elevated shadow — darker base for dark theme
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-shadow-elevated-md:
+    0px 16px 48px 0px rgba(0, 0, 0, 0.6),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.3),
+    0px 6px 8px 0px rgba(0, 0, 0, 0.25),
+    0px 2px 3px 0px rgba(0, 0, 0, 0.15);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   11. Radius — align to app --radius token
+   ────────────────────────────────────────────────────────────────────────────*/
+:root {
+  --tt-radius-sm: var(--radius);
+  --tt-radius-md: var(--radius);
+  --tt-radius-lg: calc(var(--radius) * 1.5);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   12. Button color tokens — scoped to .tiptap-button so they win over the
+       component-file definitions without requiring !important.
+       Since the app is always dark, we set "dark-mode" values as the base.
+   ────────────────────────────────────────────────────────────────────────────*/
+.tiptap-button {
+  /* Default state */
+  --tt-button-default-bg-color: transparent;
+  --tt-button-hover-bg-color: hsl(var(--muted));
+  --tt-button-active-bg-color: hsl(var(--primary) / 0.15);
+  --tt-button-active-bg-color-emphasized: hsl(var(--primary));
+  --tt-button-active-bg-color-subdued: hsl(var(--muted));
+  --tt-button-active-hover-bg-color: hsl(var(--muted));
+  --tt-button-active-hover-bg-color-emphasized: hsl(var(--primary) / 0.85);
+  --tt-button-active-hover-bg-color-subdued: hsl(var(--muted));
+  --tt-button-disabled-bg-color: transparent;
+
+  /* Text colors */
+  --tt-button-default-text-color: hsl(var(--muted-foreground));
+  --tt-button-hover-text-color: hsl(var(--foreground));
+  --tt-button-active-text-color: hsl(var(--foreground));
+  --tt-button-active-text-color-emphasized: hsl(var(--primary-foreground));
+  --tt-button-active-text-color-subdued: hsl(var(--foreground));
+  --tt-button-disabled-text-color: hsl(var(--muted-foreground) / 0.5);
+
+  /* Icon colors */
+  --tt-button-default-icon-color: hsl(var(--muted-foreground));
+  --tt-button-hover-icon-color: hsl(var(--foreground));
+  --tt-button-active-icon-color: hsl(var(--primary));
+  --tt-button-active-icon-color-emphasized: hsl(var(--primary-foreground));
+  --tt-button-active-icon-color-subdued: hsl(var(--foreground));
+  --tt-button-disabled-icon-color: hsl(var(--muted-foreground) / 0.4);
+
+  /* Sub-icon colors */
+  --tt-button-default-icon-sub-color: hsl(var(--muted-foreground) / 0.6);
+  --tt-button-hover-icon-sub-color: hsl(var(--muted-foreground));
+  --tt-button-active-icon-sub-color: hsl(var(--muted-foreground) / 0.6);
+  --tt-button-active-icon-sub-color-emphasized: hsl(var(--primary-foreground) / 0.7);
+  --tt-button-active-icon-sub-color-subdued: hsl(var(--muted-foreground) / 0.6);
+  --tt-button-disabled-icon-sub-color: hsl(var(--muted-foreground) / 0.3);
+
+  /* Dropdown arrow colors */
+  --tt-button-default-dropdown-arrows-color: hsl(var(--muted-foreground));
+  --tt-button-hover-dropdown-arrows-color: hsl(var(--foreground));
+  --tt-button-active-dropdown-arrows-color: hsl(var(--primary));
+  --tt-button-active-dropdown-arrows-color-emphasized: hsl(var(--primary-foreground));
+  --tt-button-active-dropdown-arrows-color-subdued: hsl(var(--muted-foreground));
+  --tt-button-disabled-dropdown-arrows-color: hsl(var(--muted-foreground) / 0.4);
+
+  /* Ghost variant — same dark-theme mapping */
+  &[data-style="ghost"] {
+    --tt-button-default-bg-color: transparent;
+    --tt-button-hover-bg-color: hsl(var(--muted));
+    --tt-button-active-bg-color: hsl(var(--primary) / 0.15);
+    --tt-button-active-bg-color-emphasized: hsl(var(--primary));
+    --tt-button-active-bg-color-subdued: hsl(var(--muted));
+    --tt-button-active-hover-bg-color: hsl(var(--muted));
+    --tt-button-active-hover-bg-color-emphasized: hsl(var(--primary) / 0.85);
+    --tt-button-active-hover-bg-color-subdued: hsl(var(--muted));
+    --tt-button-disabled-bg-color: transparent;
+
+    --tt-button-default-text-color: hsl(var(--muted-foreground));
+    --tt-button-hover-text-color: hsl(var(--foreground));
+    --tt-button-active-text-color: hsl(var(--foreground));
+    --tt-button-active-text-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-text-color-subdued: hsl(var(--foreground));
+    --tt-button-disabled-text-color: hsl(var(--muted-foreground) / 0.5);
+
+    --tt-button-default-icon-color: hsl(var(--muted-foreground));
+    --tt-button-hover-icon-color: hsl(var(--foreground));
+    --tt-button-active-icon-color: hsl(var(--primary));
+    --tt-button-active-icon-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-icon-color-subdued: hsl(var(--foreground));
+    --tt-button-disabled-icon-color: hsl(var(--muted-foreground) / 0.4);
+
+    --tt-button-default-icon-sub-color: hsl(var(--muted-foreground) / 0.6);
+    --tt-button-hover-icon-sub-color: hsl(var(--muted-foreground));
+    --tt-button-active-icon-sub-color: hsl(var(--muted-foreground) / 0.6);
+    --tt-button-active-icon-sub-color-emphasized: hsl(var(--primary-foreground) / 0.7);
+    --tt-button-active-icon-sub-color-subdued: hsl(var(--muted-foreground) / 0.6);
+    --tt-button-disabled-icon-sub-color: hsl(var(--muted-foreground) / 0.3);
+
+    --tt-button-default-dropdown-arrows-color: hsl(var(--muted-foreground));
+    --tt-button-hover-dropdown-arrows-color: hsl(var(--foreground));
+    --tt-button-active-dropdown-arrows-color: hsl(var(--primary));
+    --tt-button-active-dropdown-arrows-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-dropdown-arrows-color-subdued: hsl(var(--muted-foreground));
+    --tt-button-disabled-dropdown-arrows-color: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Primary button variant — amber bg */
+  &[data-style="primary"] {
+    --tt-button-default-bg-color: hsl(var(--primary));
+    --tt-button-hover-bg-color: hsl(var(--primary) / 0.85);
+    --tt-button-active-bg-color: hsl(var(--primary) / 0.7);
+    --tt-button-active-bg-color-emphasized: hsl(var(--primary) / 0.7);
+    --tt-button-active-bg-color-subdued: hsl(var(--primary) / 0.7);
+    --tt-button-active-hover-bg-color: hsl(var(--primary) / 0.6);
+    --tt-button-active-hover-bg-color-emphasized: hsl(var(--primary) / 0.6);
+    --tt-button-active-hover-bg-color-subdued: hsl(var(--primary) / 0.6);
+    --tt-button-disabled-bg-color: hsl(var(--muted));
+
+    --tt-button-default-text-color: hsl(var(--primary-foreground));
+    --tt-button-hover-text-color: hsl(var(--primary-foreground));
+    --tt-button-active-text-color: hsl(var(--primary-foreground));
+    --tt-button-active-text-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-text-color-subdued: hsl(var(--primary-foreground));
+    --tt-button-disabled-text-color: hsl(var(--muted-foreground) / 0.5);
+
+    --tt-button-default-icon-color: hsl(var(--primary-foreground));
+    --tt-button-hover-icon-color: hsl(var(--primary-foreground));
+    --tt-button-active-icon-color: hsl(var(--primary-foreground));
+    --tt-button-active-icon-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-icon-color-subdued: hsl(var(--primary-foreground));
+    --tt-button-disabled-icon-color: hsl(var(--muted-foreground) / 0.4);
+
+    --tt-button-default-dropdown-arrows-color: hsl(var(--primary-foreground));
+    --tt-button-hover-dropdown-arrows-color: hsl(var(--primary-foreground));
+    --tt-button-active-dropdown-arrows-color: hsl(var(--primary-foreground));
+    --tt-button-active-dropdown-arrows-color-emphasized: hsl(var(--primary-foreground));
+    --tt-button-active-dropdown-arrows-color-subdued: hsl(var(--primary-foreground));
+    --tt-button-disabled-dropdown-arrows-color: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   13. Separator token
+   ────────────────────────────────────────────────────────────────────────────*/
+.tiptap-separator {
+  --tt-link-border-color: hsl(var(--border));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   14. Badge default tokens — remap to app palette
+       (brand and semantic color badges keep their own hue palette intentionally)
+   ────────────────────────────────────────────────────────────────────────────*/
+.tiptap-badge {
+  --tt-badge-border-color: hsl(var(--border));
+  --tt-badge-border-color-subdued: hsl(var(--border));
+  --tt-badge-border-color-emphasized: hsl(var(--ring));
+  --tt-badge-text-color: hsl(var(--muted-foreground));
+  --tt-badge-text-color-subdued: hsl(var(--muted-foreground) / 0.7);
+  --tt-badge-text-color-emphasized: hsl(var(--foreground));
+  --tt-badge-bg-color: hsl(var(--card));
+  --tt-badge-bg-color-subdued: hsl(var(--card));
+  --tt-badge-bg-color-emphasized: hsl(var(--card));
+  --tt-badge-icon-color: hsl(var(--muted-foreground));
+  --tt-badge-icon-color-subdued: hsl(var(--muted-foreground) / 0.7);
+  --tt-badge-icon-color-emphasized: hsl(var(--primary));
+
+  &[data-style="ghost"] {
+    --tt-badge-border-color: hsl(var(--border));
+    --tt-badge-border-color-subdued: hsl(var(--border));
+    --tt-badge-border-color-emphasized: hsl(var(--ring));
+    --tt-badge-text-color: hsl(var(--muted-foreground));
+    --tt-badge-text-color-subdued: hsl(var(--muted-foreground) / 0.7);
+    --tt-badge-text-color-emphasized: hsl(var(--foreground));
+    --tt-badge-bg-color: transparent;
+    --tt-badge-bg-color-subdued: transparent;
+    --tt-badge-bg-color-emphasized: transparent;
+    --tt-badge-icon-color: hsl(var(--muted-foreground));
+    --tt-badge-icon-color-subdued: hsl(var(--muted-foreground) / 0.7);
+    --tt-badge-icon-color-emphasized: hsl(var(--primary));
+  }
+
+  &[data-style="gray"] {
+    --tt-badge-text-color-emphasized: hsl(var(--foreground));
+    --tt-badge-bg-color: hsl(var(--muted));
+    --tt-badge-bg-color-subdued: hsl(var(--muted) / 0.5);
+    --tt-badge-bg-color-emphasized: hsl(var(--secondary));
+    --tt-badge-icon-color-emphasized: hsl(var(--foreground));
+  }
+
+  &[data-style="brand"] {
+    /* Remap TipTap's purple brand to our amber primary */
+    --tt-badge-border-color: hsl(var(--primary) / 0.4);
+    --tt-badge-border-color-subdued: hsl(var(--primary) / 0.2);
+    --tt-badge-border-color-emphasized: hsl(var(--primary));
+    --tt-badge-text-color: hsl(var(--primary));
+    --tt-badge-text-color-subdued: hsl(var(--primary) / 0.7);
+    --tt-badge-text-color-emphasized: hsl(var(--primary-foreground));
+    --tt-badge-bg-color: hsl(var(--primary) / 0.12);
+    --tt-badge-bg-color-subdued: hsl(var(--primary) / 0.07);
+    --tt-badge-bg-color-emphasized: hsl(var(--primary));
+    --tt-badge-icon-color: hsl(var(--primary));
+    --tt-badge-icon-color-subdued: hsl(var(--primary) / 0.7);
+    --tt-badge-icon-color-emphasized: hsl(var(--primary-foreground));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   15. Portaled element hardening
+       TipTap popovers/dropdowns render in portals attached to <body>.
+       The token overrides at :root above handle their surfaces. These rules
+       add explicit background/color fallbacks on the concrete classnames so
+       that even if a browser doesn't inherit :root vars into portals, the
+       colours stay correct.
+   ────────────────────────────────────────────────────────────────────────────*/
+.tiptap-dropdown-menu-content,
+.tiptap-dropdown-menu-sub-content {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+.tiptap-popover {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+
+.tiptap-card {
+  background-color: hsl(var(--popover));
+  border-color: hsl(var(--border));
+}
+
+.tiptap-tooltip {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}

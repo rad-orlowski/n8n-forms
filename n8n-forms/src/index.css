@@ -1,0 +1,185 @@
+@import './styles/_variables.scss';
+@import './styles/_tiptap-theme-overrides.scss';
+@import './styles/_keyframe-animations.scss';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Aesthetic direction: "industrial control panel" — a precise, engineered console
+  for triggering automations. Deep charcoal-blue field, signal-amber accent,
+  squared technical type. Fonts loaded in index.html:
+    display -> Chakra Petch   (angular, console-like headings)
+    body    -> IBM Plex Sans  (refined, legible)
+    mono    -> JetBrains Mono  (webhook URLs, field hints)
+*/
+
+@layer base {
+  :root,
+  .dark {
+    --background: 222 20% 7%;
+    --foreground: 40 14% 90%;
+
+    --card: 222 18% 10%;
+    --card-foreground: 40 14% 92%;
+
+    --popover: 222 18% 9%;
+    --popover-foreground: 40 14% 92%;
+
+    --primary: 36 96% 56%;
+    --primary-foreground: 222 40% 8%;
+
+    --secondary: 222 14% 16%;
+    --secondary-foreground: 40 14% 90%;
+
+    --muted: 222 14% 14%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 174 58% 44%;
+    --accent-foreground: 222 40% 8%;
+
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 40 14% 96%;
+
+    --success: 145 58% 45%;
+
+    --border: 222 13% 19%;
+    --input: 222 13% 22%;
+    --ring: 36 96% 56%;
+
+    --radius: 0.4rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100vh;
+    /* engineered grid texture + soft amber glow from the top */
+    background-image:
+      radial-gradient(
+        110% 80% at 50% -10%,
+        hsl(36 96% 56% / 0.10),
+        transparent 60%
+      ),
+      linear-gradient(hsl(0 0% 100% / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(0 0% 100% / 0.025) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, .font-display {
+    /* Expanded from @apply font-display — avoids Tailwind 3 circular-dependency
+       error at build time when selector name matches the utility class name. */
+    font-family: "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  /* uppercase technical eyebrow / label */
+  .label-tech {
+    @apply font-mono uppercase tracking-[0.18em] text-xs text-muted-foreground;
+  }
+
+  /* hairline scanline divider */
+  .rule-tech {
+    height: 1px;
+    background: repeating-linear-gradient(
+      90deg,
+      hsl(var(--border)) 0 6px,
+      transparent 6px 12px
+    );
+  }
+
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-rise {
+    animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ── entrance animations ─────────────────────────────────────────────── */
+
+  /* Validation error message: fade + tiny upward slide-in */
+  @keyframes error-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-error-in {
+    animation: error-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Success / error panel: scale-up from 98% + fade */
+  @keyframes panel-in {
+    from { opacity: 0; transform: scale(0.98) translateY(6px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+  .animate-panel-in {
+    animation: panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Response field rows: staggered slide-in from left (set animation-delay inline) */
+  @keyframes field-in {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-field-in {
+    animation: field-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ── shake on submit-with-errors ─────────────────────────────────────── */
+
+  @keyframes shake {
+    0%,  100% { transform: translateX(0); }
+    15%        { transform: translateX(-5px); }
+    30%        { transform: translateX(4px); }
+    45%        { transform: translateX(-3px); }
+    60%        { transform: translateX(2px); }
+    75%        { transform: translateX(-1px); }
+  }
+  .animate-shake {
+    animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  /* ── smooth focus + state transitions ───────────────────────────────── */
+
+  /* Inputs and textareas: smooth ring/shadow transition on focus */
+  input:not([type="checkbox"]),
+  textarea,
+  select {
+    transition:
+      color        150ms ease,
+      border-color 150ms ease,
+      box-shadow   200ms cubic-bezier(0.22, 1, 0.36, 1),
+      background   150ms ease;
+  }
+
+  /* ── prefers-reduced-motion guard ───────────────────────────────────── */
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise,
+    .animate-error-in,
+    .animate-panel-in,
+    .animate-field-in,
+    .animate-shake {
+      animation: none;
+    }
+
+    input:not([type="checkbox"]),
+    textarea,
+    select {
+      transition: none;
+    }
+  }
+}

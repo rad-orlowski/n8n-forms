@@ -1,0 +1,79 @@
+/*
+ * simple-editor.scss — styles for the standalone full-page SimpleEditor template.
+ *
+ * IMPORTANT: all rules that used to target bare `body`, `html`, `#root`, `#app`
+ * are now scoped to `.simple-editor-wrapper` so they cannot leak into host apps
+ * that embed the editor as a form field (see rich-text-field.tsx).
+ *
+ * The Google Fonts import is kept; it loads DM Sans / Inter only when this
+ * component tree is actually rendered.
+ */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+/* Toolbar height + theme-text tokens — scoped to the wrapper */
+.simple-editor-wrapper {
+  --tt-toolbar-height: 44px;
+  --tt-theme-text: var(--tt-gray-light-900);
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+  }
+
+  /* Font / text resets that previously targeted bare `body` */
+  font-family: "Inter", sans-serif;
+  color: var(--tt-theme-text);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+
+  /* Layout resets that previously targeted html/body/#root/#app */
+  overscroll-behavior: none;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--tt-bg-color);
+  overflow: auto;
+
+  /* Scoped scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 0.25rem;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tt-scrollbar-color) transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--tt-scrollbar-color);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.tiptap.ProseMirror {
+  font-family: "DM Sans", sans-serif;
+}
+
+.simple-editor-content {
+  max-width: 648px;
+  width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  flex: 1;
+  padding: 3rem 3rem 30vh;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror.simple-editor {
+    padding: 1rem 1.5rem 30vh;
+  }
+}

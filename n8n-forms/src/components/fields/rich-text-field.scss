@@ -1,0 +1,135 @@
+/*
+ * rich-text-field.scss
+ *
+ * Scoped styles for the RichTextField form component.
+ * Uses the project's CSS custom properties (--background, --border, --input,
+ * --ring, --radius, --foreground, --muted, etc.) so it inherits the dark
+ * industrial control panel theme automatically.
+ */
+
+.rte-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background-color: hsl(var(--input));
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+
+  &:focus-within {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.5);
+    border-color: hsl(var(--ring));
+  }
+}
+
+/*
+ * Toolbar — sits at the top, uses a slightly lighter surface so it reads as
+ * a distinct chrome rail against the editor body below.
+ */
+.rte-field-toolbar.tiptap-toolbar {
+  position: relative;
+  top: unset;
+  bottom: unset;
+  left: unset;
+  right: unset;
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 0.25rem 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+
+  /* Keep toolbar scrollable on very narrow containers rather than overflowing */
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/*
+ * Editor content area.
+ */
+.rte-field-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  /* The ProseMirror editable div */
+  .tiptap.ProseMirror.rte-field-editor {
+    flex: 1;
+    min-height: 180px;
+    padding: 0.75rem 1rem;
+    color: hsl(var(--foreground));
+    font-size: 0.9rem;
+    line-height: 1.6;
+    outline: none;
+
+    /* Placeholder text */
+    &.ProseMirror-focused { outline: none; }
+
+    p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      color: hsl(var(--muted-foreground));
+      pointer-events: none;
+      float: left;
+      height: 0;
+    }
+
+    /* Headings */
+    h1, h2, h3, h4 {
+      color: hsl(var(--foreground));
+      font-family: var(--font-display, inherit);
+      margin: 0.75em 0 0.35em;
+    }
+
+    /* Inline code */
+    code:not(pre code) {
+      background-color: hsl(var(--muted));
+      color: hsl(var(--accent-foreground));
+      border-radius: 0.2em;
+      padding: 0.1em 0.35em;
+      font-size: 0.85em;
+    }
+
+    /* Code block */
+    pre {
+      background-color: hsl(var(--muted));
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+
+      code { background: none; padding: 0; font-size: 0.85em; }
+    }
+
+    /* Blockquote */
+    blockquote {
+      border-left: 3px solid hsl(var(--primary));
+      margin: 0.5em 0;
+      padding-left: 1em;
+      color: hsl(var(--muted-foreground));
+    }
+
+    /* Lists */
+    ul, ol { padding-left: 1.5em; margin: 0.4em 0; }
+    li { margin: 0.2em 0; }
+
+    /* Horizontal rule */
+    hr {
+      border: none;
+      border-top: 1px solid hsl(var(--border));
+      margin: 1em 0;
+    }
+
+    /* Links */
+    a {
+      color: hsl(var(--primary));
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* Selection highlight (TipTap Selection extension) */
+    .selection {
+      background-color: hsl(var(--ring) / 0.25);
+    }
+  }
+}
