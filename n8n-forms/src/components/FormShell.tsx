@@ -255,6 +255,20 @@ function BackLink() {
 }
 
 /**
+ * Resolve a response dot-path against n8n's reply, which arrives in two shapes:
+ * a bare object `{...}` or an array-wrapped `[{...}]`. We unwrap a single-element
+ * array so object-style paths ("body.message") work either way, and still tolerate
+ * legacy "0."-prefixed paths plus genuine multi-element arrays.
+ */
+function resolveResponseValue(data: unknown, key: string): unknown {
+  const root = Array.isArray(data) && data.length === 1 ? data[0] : data;
+  let v = get(root, key);
+  if (v === undefined && key.startsWith("0.")) v = get(root, key.slice(2));
+  if (v === undefined) v = get(data, key);
+  return v;
+}
+
+/**
  * Parses the webhook response body as JSON and renders the declared fields.
  * Falls back to displaying the raw body text if parsing fails.
  */
@@ -266,9 +280,9 @@ function ResponsePanel({
   body: string;
 }) {
   // Attempt to parse — non-JSON responses (plain text, HTML) fall back gracefully.
-  // Accept any non-null JSON value that is an object or array — arrays are valid
-  // because n8n's default echo wraps the payload in a top-level array, and
-  // es-toolkit get() resolves numeric dot-paths (e.g. "0.body.message") against them.
+  // The reply may be a bare object `{...}` or an array-wrapped `[{...}]`;
+  // resolveResponseValue normalises both, so response keys are written object-style
+  // (e.g. "body.message") and a legacy "0." prefix is still tolerated.
   let parsed: Record<string, unknown> | unknown[] | null = null;
   try {
     const v = JSON.parse(body);
@@ -295,7 +309,7 @@ function ResponsePanel({
       {parsed !== null ? (
         <dl className="space-y-2">
           {responseConfig.fields.map(({ key, label }, i) => {
-            const raw = get(parsed, key);
+            const raw = resolveResponseValue(parsed, key);
             return (
               <div
                 key={key}

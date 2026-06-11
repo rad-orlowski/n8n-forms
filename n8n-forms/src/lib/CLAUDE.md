@@ -14,10 +14,12 @@ The single source of truth for the form/field type system.
 - `FieldComponent` — `ComponentType<FieldComponentProps>`
 
 ### Response dot-path resolution
-`ResponsePanel` in `FormShell.tsx` resolves each `ResponseField.key` with `get` imported from
-**`es-toolkit/compat`** (not the main `es-toolkit` export — `get` does not exist there).
-Dot-paths work against both plain objects and top-level arrays; n8n's default webhook echo
-returns `[{...}]`, so paths use numeric indices: `"0.body.message"`, `"0.executionMode"`.
+`ResponsePanel` in `FormShell.tsx` resolves each `ResponseField.key` via `resolveResponseValue`,
+which uses `get` imported from **`es-toolkit/compat`** (not the main `es-toolkit` export — `get`
+does not exist there). The n8n reply may be a bare object `{...}` or an array-wrapped `[{...}]`;
+`resolveResponseValue` unwraps a single-element array so object-style paths are the norm:
+`"body.message"`, `"executionMode"`. A legacy `"0."` prefix (e.g. `"0.body.message"`) is still
+tolerated for backwards compatibility.
 
 ## submit.ts
 `postToWebhook(url, values, options?)` — POSTs JSON to an n8n webhook via `ky`.

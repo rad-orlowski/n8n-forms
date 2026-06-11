@@ -13,10 +13,10 @@ export default defineForm({
   response: {
     title: "Webhook echo",
     fields: [
-      { key: "0.body.message", label: "Message received" },
-      { key: "0.executionMode", label: "Execution mode" },
-      { key: "0.webhookUrl", label: "Endpoint" },
-      { key: "0.headers.x-real-ip", label: "Client IP" },
+      { key: "body.message", label: "Message received" },
+      { key: "executionMode", label: "Execution mode" },
+      { key: "webhookUrl", label: "Endpoint" },
+      { key: "headers.x-real-ip", label: "Client IP" },
     ],
   },
 });
