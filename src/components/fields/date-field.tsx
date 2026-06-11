@@ -38,7 +38,7 @@ export function DateField({ field, def }: FieldComponentProps) {
           onSelect={(date) =>
             field.onChange(date ? format(date, "yyyy-MM-dd") : "")
           }
-          initialFocus
+
         />
       </PopoverContent>
     </Popover>

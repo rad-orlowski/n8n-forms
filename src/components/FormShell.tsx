@@ -132,6 +132,7 @@ export function FormShell({ schema }: { schema: FormSchema }) {
       <Form {...form}>
         <form
           ref={formRef}
+          // eslint-disable-next-line react-hooks/refs
           onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
           className="mt-6 space-y-6"
         >

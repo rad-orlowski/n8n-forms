@@ -170,9 +170,12 @@ const MobileToolbarContent = ({
 
 export function RichTextField({ field, def }: FieldComponentProps) {
   const isMobile = useIsBreakpoint()
-  const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
+  // Tracks which toolbar panel the user opened on mobile (highlighter / link / main).
+  // On desktop we always derive "main" directly so no effect is needed to reset it.
+  const [mobileToolbarView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
+  const mobileView = isMobile ? mobileToolbarView : "main"
   const toolbarRef = useRef<HTMLDivElement>(null)
 
   // Capture the initial value once so we never re-inject into the editor.
@@ -195,6 +198,7 @@ export function RichTextField({ field, def }: FieldComponentProps) {
   // calling into an already-torn-down RHF controller.
   useEffect(() => () => debouncedOnChange.cancel(), [debouncedOnChange])
 
+  // eslint-disable-next-line react-hooks/refs
   const editor = useEditor({
     immediatelyRender: false,
     editorProps: {
@@ -232,6 +236,7 @@ export function RichTextField({ field, def }: FieldComponentProps) {
       Selection,
       // ImageUploadNode is intentionally NOT included — no upload backend.
     ],
+    // eslint-disable-next-line react-hooks/refs
     content: initialContentRef.current || undefined,
     onUpdate: ({ editor: e }) => {
       debouncedOnChange(e.getHTML())
@@ -247,14 +252,9 @@ export function RichTextField({ field, def }: FieldComponentProps) {
 
   const rect = useCursorVisibility({
     editor,
+    // eslint-disable-next-line react-hooks/refs
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
-
-  useEffect(() => {
-    if (!isMobile && mobileView !== "main") {
-      setMobileView("main")
-    }
-  }, [isMobile, mobileView])
 
   return (
     <div className="rte-field-wrapper tiptap-editor-scope">

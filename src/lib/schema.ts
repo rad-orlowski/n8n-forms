@@ -115,7 +115,7 @@ export function buildZodSchema(fields: FieldDef[]) {
       }
       case "number":
       case "rating": {
-        let num = z.coerce.number({ invalid_type_error: "Enter a number" });
+        let num = z.coerce.number({ error: "Enter a number" });
         if (f.min != null) num = num.min(f.min, `Must be ≥ ${f.min}`);
         if (f.max != null) num = num.max(f.max, `Must be ≤ ${f.max}`);
         s = f.required ? num : num.optional();
