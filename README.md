@@ -24,7 +24,6 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 ### Setup
 
 ```bash
-cd n8n-forms
 cp .env.example .env          # fill in your webhook URLs
 bun install
 bun dev                        # dev server at http://localhost:5173
@@ -33,7 +32,7 @@ bun dev                        # dev server at http://localhost:5173
 ### Build the portable artifact
 
 ```bash
-./bundle-artifact.sh           # outputs n8n-forms/forms.html
+./bundle-artifact.sh           # outputs forms.html
 ```
 
 Open `forms.html` in any browser — no server needed.
@@ -43,7 +42,7 @@ Open `forms.html` in any browser — no server needed.
 ## Project structure
 
 ```
-n8n-forms/
+.
 ├── src/
 │   ├── forms/              # one *.form.ts per form
 │   ├── components/

@@ -5,7 +5,7 @@ description: Create a new form that triggers an n8n workflow via webhook. Use wh
 
 # create-n8n-form
 
-Add a form to `/Users/rad/dev/playground/n8n forms/n8n-forms`. Repo references:
+Add a form to `/Users/rad/dev/playground/n8n forms`. Repo references:
 `src/forms/CLAUDE.md` (schema), `src/components/fields/CLAUDE.md` (fields), root `CLAUDE.md` (build).
 
 ## When to use
