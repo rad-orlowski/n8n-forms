@@ -2,21 +2,24 @@ import { CalendarCheck } from "lucide-react";
 import { defineForm } from "@/lib/schema";
 
 // Example form (committed, public). Showcases date / number / url fields plus a
-// static heading. Webhook comes from a local, gitignored .env (see .env.example).
+// static heading. Webhook is resolved server-side from WEBHOOK_EVENT_RSVP in the server's env.
 export default defineForm({
   slug: "event-rsvp",
   icon: CalendarCheck,
   title: "Event RSVP",
   description: "Reserve your spot for the launch meetup.",
-  webhook: import.meta.env.VITE_WEBHOOK_EVENT_RSVP,
   submitLabel: "Confirm RSVP",
   successMessage: "You're on the list — see you there.",
-  fields: [
-    { type: "heading", label: "Launch Meetup", description: "Friday evening · doors at 18:00", level: 2 },
-    { type: "text", name: "name", label: "Full name", placeholder: "Grace Hopper", required: true },
-    { type: "email", name: "email", label: "Email", placeholder: "grace@example.com", required: true },
-    { type: "date", name: "attendingOn", label: "Which date works?", required: true },
-    { type: "number", name: "guests", label: "Guests (including you)", min: 1, max: 6, required: true },
-    { type: "url", name: "profile", label: "LinkedIn / website (optional)", placeholder: "https://" },
+  pages: [
+    {
+      fields: [
+        { type: "heading", label: "Launch Meetup", description: "Friday evening · doors at 18:00", level: 2 },
+        { type: "text", name: "name", label: "Full name", placeholder: "Grace Hopper", required: true },
+        { type: "email", name: "email", label: "Email", placeholder: "grace@example.com", required: true },
+        { type: "date", name: "attendingOn", label: "Which date works?", required: true },
+        { type: "number", name: "guests", label: "Guests (including you)", min: 1, max: 6, required: true },
+        { type: "url", name: "profile", label: "LinkedIn / website (optional)", placeholder: "https://" },
+      ],
+    },
   ],
 });
