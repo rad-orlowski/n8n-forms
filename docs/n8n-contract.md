@@ -214,10 +214,8 @@ Wait node ("On Webhook Call")
 
 ## Security notes
 
-- The BFF validates the per-form token (`FORM_TOKEN_<SLUG>`) before forwarding any
-  request to n8n. Unauthenticated calls return 401 without contacting n8n.
 - Webhook URLs (`WEBHOOK_<SLUG>`) and `resumeUrl` values are stored server-side only
   and never appear in BFF responses to the browser.
 - The `callbackUrl` embeds the `sessionId` — n8n must not share or forward it.
 - Implement payload validation inside each n8n workflow; the BFF forwards answers
-  without additional sanitization beyond token checking.
+  without sanitization.
