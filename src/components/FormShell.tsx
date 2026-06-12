@@ -50,10 +50,8 @@ type WizardPhase =
 
 export function FormShell({
   schema,
-  token,
 }: {
   schema: FormSchema;
-  token: string | null;
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -152,7 +150,7 @@ export function FormShell({
 
     if (currentPage === 0) {
       // First page — kick off a new n8n execution
-      const res = await startForm(schema.slug, values, token);
+      const res = await startForm(schema.slug, values);
 
       if ("ok" in res) {
         // BffError
@@ -522,21 +520,31 @@ function ResponsePanel({
     data !== null && data !== undefined && typeof data === "object";
 
   return (
-    <div className="mt-6 border-t border-success/20 pt-5">
-      <p className="label-tech mb-3">{responseConfig.title ?? "Response"}</p>
+    <div className="mt-8">
+      {/* Section header — amber accent bar + label */}
+      <div className="mb-3 flex items-center gap-3">
+        <span className="h-px flex-1 bg-success/20" />
+        <h3 className="label-tech text-primary text-[11px] tracking-[0.22em]">
+          {responseConfig.title ?? "Response"}
+        </h3>
+        <span className="h-px flex-1 bg-success/20" />
+      </div>
 
       {hasStructured ? (
-        <dl className="space-y-2">
+        <dl className="divide-y divide-border/30 rounded-md border border-border/40 overflow-hidden">
           {responseConfig.fields.map(({ key, label }, i) => {
             const raw = resolveResponseValue(data, key);
+            const isEmpty = raw === undefined || raw === null;
             return (
               <div
                 key={key}
-                className="animate-field-in flex flex-col gap-0.5"
+                className="animate-field-in grid grid-cols-[auto_1fr] items-baseline gap-x-4 px-3 py-2"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
-                <dt className="label-tech text-[10px]">{label ?? key}</dt>
-                <dd className="font-mono text-sm text-foreground break-all">
+                <dt className="label-tech text-[9px] text-muted-foreground/60 whitespace-nowrap">
+                  {label ?? key}
+                </dt>
+                <dd className={`font-mono text-sm break-all text-right ${isEmpty ? "text-muted-foreground/40 italic" : "text-foreground"}`}>
                   {formatValue(raw)}
                 </dd>
               </div>

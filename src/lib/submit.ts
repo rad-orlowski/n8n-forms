@@ -74,26 +74,16 @@ async function extractError(err: unknown): Promise<BffError> {
 /**
  * Submit page 0 of a form to the BFF.
  *
- * Token is forwarded as `x-form-token` header (preferred by the server) and
- * also appended as `?t=` query for fallback. No POST retry — double-trigger
- * risk on the n8n workflow remains as in the original design.
+ * No POST retry — double-trigger risk on the n8n workflow remains as in the
+ * original design.
  */
 export async function startForm(
   slug: string,
   answers: Record<string, unknown>,
-  token: string | null,
 ): Promise<StartResponse> {
   try {
-    const headers: Record<string, string> = {};
-    if (token) headers["x-form-token"] = token;
-
-    const url = token
-      ? `/api/forms/${slug}/start?t=${encodeURIComponent(token)}`
-      : `/api/forms/${slug}/start`;
-
-    const res = await ky.post(url, {
+    const res = await ky.post(`/api/forms/${slug}/start`, {
       json: { answers },
-      headers,
       timeout: 15000,
     });
 

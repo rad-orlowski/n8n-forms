@@ -9,36 +9,29 @@ import { forms, getForm } from "@/forms/index";
 // ── hash router ────────────────────────────────────────────────────────────────
 
 /**
- * Returns the slug portion of the URL hash (the part after `#/`), and the
- * `?t=` token if present in either the hash query-string or the main query.
+ * Returns the slug portion of the URL hash (the part after `#/`).
  *
  * Examples:
- *   #/contact?t=abc  → { slug: "contact", token: "abc" }
- *   #/ping           → { slug: "ping",    token: null  }
- *   #/               → { slug: "",        token: null  }
+ *   #/contact  → "contact"
+ *   #/ping     → "ping"
+ *   #/         → ""
  */
-function parseHash(): { slug: string; token: string | null } {
+function parseHash(): string {
   const hash = window.location.hash.replace(/^#\/?/, ""); // strip leading "#/"
   const qIdx = hash.indexOf("?");
-  const slug = qIdx === -1 ? hash : hash.slice(0, qIdx);
-  const query = qIdx === -1 ? "" : hash.slice(qIdx + 1);
-  const params = new URLSearchParams(query);
-  // Also check the main (pre-hash) query string as a fallback
-  const mainParams = new URLSearchParams(window.location.search);
-  const token = params.get("t") ?? mainParams.get("t");
-  return { slug, token };
+  return qIdx === -1 ? hash : hash.slice(0, qIdx);
 }
 
-function useHashRoute(): { slug: string; token: string | null } {
-  const [route, setRoute] = useState(parseHash);
+function useHashRoute(): string {
+  const [slug, setSlug] = useState(parseHash);
 
   useEffect(() => {
-    const onHashChange = () => setRoute(parseHash());
+    const onHashChange = () => setSlug(parseHash());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  return route;
+  return slug;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -162,7 +155,7 @@ function UnknownForm({ slug }: { slug: string }) {
 // ── app root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { slug, token } = useHashRoute();
+  const slug = useHashRoute();
   const form = slug ? getForm(slug) : undefined;
 
   return (
@@ -175,7 +168,7 @@ export default function App() {
           // key by slug so navigating between forms remounts FormShell with
           // fresh wizard state (phase/session/answers) instead of leaking the
           // previous form's "done" state.
-          <FormShell key={form.slug} schema={form} token={token} />
+          <FormShell key={form.slug} schema={form} />
         ) : (
           <UnknownForm slug={slug} />
         )}

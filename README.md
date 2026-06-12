@@ -52,17 +52,15 @@ cp .env.example .env          # fill in webhook URLs + form tokens
 bun install
 ```
 
-### Local development (two terminals)
+### Local development
 
 ```bash
-# Terminal 1 — Vite dev server with HMR (SPA only)
 bun dev
-
-# Terminal 2 — BFF server (auto-restarts on changes)
-bun run dev:server
 ```
 
-Navigate to `http://localhost:5173/#/<slug>?t=<FORM_TOKEN_SLUG>`.
+One terminal. Starts the BFF (Hono/Bun) with Vite in middleware mode — HMR works, `/api/*` routes are live, everything on a single port.
+
+Navigate to `http://localhost:3737/#/<slug>?t=<FORM_TOKEN_SLUG>`.
 
 ### Production
 
@@ -116,7 +114,7 @@ docker compose up    # builds the image and starts the server
 
 The app auto-discovers every `*.form.ts` under the `forms/` directory (including
 subfolders like `forms/examples/`) via `import.meta.glob` — no manual registration
-is needed. Just create the file, add the env keys, and restart both servers.
+is needed. Just create the file, add the env keys, and restart the dev server.
 
 1. **Create** `forms/<slug>.form.ts`:
 
@@ -218,8 +216,8 @@ See [`docs/n8n-contract.md`](docs/n8n-contract.md) for the full workflow integra
 
 | Command | Description |
 |---|---|
-| `bun dev` | Vite dev server at `http://localhost:5173` (SPA only) |
-| `bun run dev:server` | BFF dev server at port 3000 (auto-restarts on changes) |
+| `bun dev` | Single dev server: BFF + Vite middleware at `http://localhost:3737` (HMR included) |
+| `bun run dev:vite` | Vite standalone at `http://localhost:5173` (SPA only, no BFF) |
 | `bun run build` | `tsc -b && vite build` → `dist/` |
 | `bun start` | Serve `dist/` + `/api/*` via BFF (production) |
 | `bun run lint` | ESLint |

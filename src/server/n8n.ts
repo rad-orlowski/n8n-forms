@@ -16,6 +16,37 @@
  */
 
 import ky, { HTTPError } from "ky";
+import { readFileSync } from "fs";
+
+// ---------------------------------------------------------------------------
+// Optional custom CA (for local dev with self-signed / mkcert certs).
+// Set NODE_EXTRA_CA_CERTS in .env to the PEM path; ignored in production
+// where n8n has a real certificate trusted by Bun's built-in CA store.
+// ---------------------------------------------------------------------------
+function loadCustomCA(): string | undefined {
+  const caPath = process.env.NODE_EXTRA_CA_CERTS;
+  if (!caPath) return undefined;
+  try {
+    return readFileSync(caPath, "utf8");
+  } catch {
+    console.warn(`[n8n] NODE_EXTRA_CA_CERTS path not readable: ${caPath}`);
+    return undefined;
+  }
+}
+
+// Pre-built ky instance with optional custom CA baked in.
+// Constructed once at module load — no per-request allocation.
+const n8nKy = ky.create({
+  fetch: (() => {
+    const ca = loadCustomCA();
+    if (!ca) return fetch;
+    const tlsInit = { tls: { ca } } as RequestInit;
+    return (input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+      fetch(input, { ...init, ...tlsInit });
+  })(),
+  retry: 0,
+  timeout: 30_000,
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,13 +111,7 @@ export async function postToN8n(
 ): Promise<N8nResult> {
   let response: Response;
   try {
-    response = await ky.post(targetUrl, {
-      json: payload,
-      // No retry — double-trigger risk is unacceptable for webhook workflows.
-      retry: 0,
-      // 30-second timeout; long-running workflows should use the 202/callback path.
-      timeout: 30_000,
-    });
+    response = await n8nKy.post(targetUrl, { json: payload });
   } catch (err) {
     if (err instanceof HTTPError) {
       const status = err.response.status;
@@ -116,9 +141,23 @@ export async function postToN8n(
       ? (body[0] as Record<string, unknown>)
       : obj;
 
+  // If the workflow explicitly returned a `data` key, use it.
+  // Otherwise expose the entire payload (minus BFF-internal keys) so form
+  // response panels can reference any top-level n8n field directly.
+  const INTERNAL_KEYS = new Set(["resumeUrl", "done", "data"]);
+  const rest = Object.fromEntries(
+    Object.entries(payload0).filter(([k]) => !INTERNAL_KEYS.has(k))
+  );
+  const data: unknown =
+    "data" in payload0
+      ? payload0.data
+      : Object.keys(rest).length > 0
+        ? rest
+        : null;
+
   return {
     pending: false,
-    data: payload0.data ?? null,
+    data,
     resumeUrl: typeof payload0.resumeUrl === "string" ? payload0.resumeUrl : null,
     done: Boolean(payload0.done ?? !payload0.resumeUrl),
   };

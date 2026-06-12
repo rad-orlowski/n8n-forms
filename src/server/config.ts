@@ -3,7 +3,6 @@
  *
  * Env var naming convention (mirrored in .env.example):
  *   WEBHOOK_<SLUG>      — n8n webhook URL for a form
- *   FORM_TOKEN_<SLUG>   — bearer token the browser must send to /start
  *   where <SLUG> is the form slug uppercased, non-alphanumeric→_
  *   e.g. "event-rsvp" → "EVENT_RSVP", "wizard-demo" → "WIZARD_DEMO"
  *
@@ -18,22 +17,20 @@ export function slugToEnvKey(slug: string): string {
   return slug.toUpperCase().replace(/[^A-Z0-9]/g, "_");
 }
 
-/** Resolved webhook + token for one form slug, or null if not configured. */
+/** Resolved webhook URL for one form slug, or null if not configured. */
 export interface FormConfig {
   webhookUrl: string;
-  token: string;
 }
 
 /**
- * Resolve the webhook URL and form token for a given slug.
- * Returns null when either value is absent from the environment.
+ * Resolve the webhook URL for a given slug.
+ * Returns null when WEBHOOK_<SLUG> is absent from the environment.
  */
 export function resolveFormConfig(slug: string): FormConfig | null {
   const key = slugToEnvKey(slug);
   const webhookUrl = process.env[`WEBHOOK_${key}`];
-  const token = process.env[`FORM_TOKEN_${key}`];
-  if (!webhookUrl || !token) return null;
-  return { webhookUrl, token };
+  if (!webhookUrl) return null;
+  return { webhookUrl };
 }
 
 /** HTTP listen port. */

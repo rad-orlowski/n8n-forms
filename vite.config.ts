@@ -10,15 +10,9 @@ export default defineConfig({
     },
   },
   server: {
-    // Two-terminal dev: vite serves the SPA (5173) and proxies /api/* to the
-    // BFF (bun run dev:server, default :3000). Keeps the browser on one origin
-    // so relative /api calls + SSE work without CORS. In production the BFF
-    // serves the built SPA itself, so this proxy is dev-only.
-    proxy: {
-      "/api": {
-        target: process.env.BFF_TARGET ?? "http://localhost:3000",
-        changeOrigin: true,
-      },
-    },
+    // Single-server dev (bun dev): Vite runs in middleware mode inside the Hono
+    // BFF (src/server/dev.ts). No proxy needed — /api/* and SPA both served
+    // from the same port. If you run `bun run dev:vite` for SPA-only work,
+    // re-add a proxy here pointing at your BFF port.
   },
 });
