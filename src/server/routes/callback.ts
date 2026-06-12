@@ -20,7 +20,7 @@ import { getSession, updateSession } from "../db.ts";
 import { publish } from "../events.ts";
 
 export async function callbackHandler(c: Context): Promise<Response> {
-  const sessionId = c.req.param("id");
+  const sessionId = c.req.param("id") ?? "";
   const session = getSession(sessionId);
 
   if (!session) {

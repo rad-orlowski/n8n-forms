@@ -68,6 +68,8 @@ interface SessionRow {
   done: number;
   createdAt: string;
   updatedAt: string;
+  // Index signature required by bun:sqlite's SQLQueryBindings constraint
+  [key: string]: string | number | null;
 }
 
 function rowToSession(row: SessionRow): Session {
