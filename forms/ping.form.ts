@@ -7,7 +7,6 @@ export default defineForm({
   title: "Ping",
   description: "Smoke test — proves the form → n8n webhook pipe works.",
   submitLabel: "Send ping",
-  successMessage: "Ping delivered — check the n8n execution log.",
   pages: [
     {
       fields: [
@@ -16,7 +15,10 @@ export default defineForm({
     },
   ],
   response: {
-    title: "Webhook echo",
+    header: {
+      message: "Ping delivered — check the n8n execution log.",
+      title: "Webhook echo",
+    },
     fields: [
       { key: "body.answers.message", label: "Message received" },
       { key: "executionMode", label: "Execution mode" },

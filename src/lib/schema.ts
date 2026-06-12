@@ -107,9 +107,15 @@ export interface ResponseField {
    * Rendering hint:
    * - `"heading"` — large prominent text, shown full-width (good for titles)
    * - `"tags"` — renders array (or comma-separated string) as inline chips
+   * - `"list"` — renders array (or comma-separated string) as a checklist of phrases
    * Arrays are auto-detected as tags even without this flag.
    */
-  format?: "heading" | "tags";
+  format?: "heading" | "tags" | "list";
+  /**
+   * When true, render this value in the readable sans body font instead of
+   * mono — for long prose like summaries/reasons.
+   */
+  prose?: boolean;
   /**
    * When set, renders a labelled divider before this field — useful for
    * grouping related rows visually (e.g. "Compensation", "Requirements").
@@ -124,14 +130,27 @@ export interface ResponseField {
 }
 
 /**
+ * Success-header config for the response panel.
+ */
+export interface ResponseHeader {
+  /** Success-header layout. "compact" (default) slim inline status row; "full" large centered; "none" hidden. */
+  style?: "compact" | "full" | "none";
+  /** Headline beside the success check. Default "Sent". */
+  heading?: string;
+  /** Sub-line under the heading. Default "Your submission was handed off to the workflow." */
+  message?: string;
+  /** Accent-divider title above the response fields. Default "Response". */
+  title?: string;
+}
+
+/**
  * Optional config for rendering structured data from the webhook response.
  * When present, the success panel parses the response body as JSON and
  * displays each declared field. Non-JSON responses fall back to plain text.
  */
 export interface ResponseConfig {
-  /** Heading shown above the response fields. Defaults to "Response". */
-  title?: string;
-  fields: ResponseField[];
+  header?: ResponseHeader;
+  fields?: ResponseField[];
 }
 
 export interface FormSchema {
@@ -151,11 +170,10 @@ export interface FormSchema {
    */
   pages: PageDef[];
   submitLabel?: string;
-  /** Shown in the success panel after a 2xx response. */
-  successMessage?: string;
   /**
-   * Optional: declare which fields from the webhook JSON response to render
-   * in the success panel. Omitting this shows only successMessage.
+   * Optional: configure the success panel — the success header (heading,
+   * message, response title, layout) and which fields from the webhook JSON
+   * response to render. Omitting this shows the default success header only.
    */
   response?: ResponseConfig;
 }

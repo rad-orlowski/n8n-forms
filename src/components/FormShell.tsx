@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Loader2,
   RefreshCw,
@@ -12,6 +13,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -37,6 +39,12 @@ import {
   startForm,
   stepForm,
 } from "@/lib/submit";
+
+// ── response panel defaults ────────────────────────────────────────────────────
+
+const DEFAULT_HEADING = "Sent";
+const DEFAULT_MESSAGE = "Your submission was handed off to the workflow.";
+const DEFAULT_TITLE = "Response";
 
 // ── wizard state ─────────────────────────────────────────────────────────────
 
@@ -243,18 +251,34 @@ export function FormShell({
   // ── done (success) state ─────────────────────────────────────────────────────
 
   if (phase.kind === "done") {
+    const header = schema.response?.header;
+    const headerStyle = header?.style ?? "compact";
+    const heading = header?.heading ?? DEFAULT_HEADING;
+    const message = header?.message ?? DEFAULT_MESSAGE;
+
     return (
       <section className="animate-rise">
         <BackLink />
-        <div className="animate-panel-in mt-6 rounded-lg border border-success/40 bg-success/5 p-8">
-          <div className="text-center">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-success" />
-            <h2 className="mt-4 text-2xl font-semibold">Sent</h2>
-            <p className="mt-2 text-muted-foreground">
-              {schema.successMessage ??
-                "Your submission was handed off to the workflow."}
-            </p>
-          </div>
+        <div className="animate-panel-in mt-6 space-y-6 rounded-lg border border-border/50 bg-card/20 p-5 sm:p-7">
+          {headerStyle === "full" ? (
+            <div className="text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-success" />
+              <h2 className="mt-4 text-2xl font-semibold">{heading}</h2>
+              <p className="mt-2 text-muted-foreground">{message}</p>
+            </div>
+          ) : headerStyle === "compact" ? (
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-success/40 bg-success/10">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+              </span>
+              <div>
+                <p className="font-display text-lg font-semibold leading-none">
+                  {heading}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+              </div>
+            </div>
+          ) : null}
 
           {schema.response && phase.data !== undefined && (
             <ResponsePanel
@@ -263,7 +287,7 @@ export function FormShell({
             />
           )}
 
-          <div className="mt-6 text-center">
+          <div className="text-center">
             <Button variant="outline" onClick={startOver}>
               Submit another
             </Button>
@@ -512,10 +536,17 @@ function resolveResponseValue(data: unknown, key: string): unknown {
 type ResolvedField = {
   key: string;
   label?: string;
-  format?: "heading" | "tags";
+  format?: "heading" | "tags" | "list";
+  prose?: boolean;
   section?: string;
   /** null means "empty but should still render as —" */
   value: string | string[] | null;
+};
+
+/** A contiguous run of resolved fields sharing the same `section`. */
+type FieldGroup = {
+  section?: string;
+  fields: ResolvedField[];
 };
 
 /**
@@ -524,7 +555,7 @@ type ResolvedField = {
  */
 function normaliseValue(
   raw: unknown,
-  format?: "heading" | "tags",
+  format?: "heading" | "tags" | "list",
 ): string | string[] | null {
   if (raw === undefined || raw === null) return null;
   if (Array.isArray(raw)) {
@@ -535,17 +566,21 @@ function normaliseValue(
   if (typeof raw === "object") return JSON.stringify(raw);
   const s = String(raw).trim();
   if (!s) return null;
-  // Explicit tags format on a plain string → split by comma
-  if (format === "tags") return s.split(",").map((t) => t.trim()).filter(Boolean);
+  // Explicit tags/list format on a plain string → split by comma
+  if (format === "tags" || format === "list") {
+    return s.split(",").map((t) => t.trim()).filter(Boolean);
+  }
   return s;
 }
 
 /**
- * Renders the declared response fields from the BFF's `data` payload.
- * - Skips fields whose resolved value is null / undefined / empty.
- * - Arrays (and `format:"tags"`) render as inline chip spans.
- * - `format:"heading"` renders large full-width text.
- * - `section` injects a labelled divider before the row.
+ * Renders the declared response fields from the BFF's `data` payload as a set
+ * of defined panels, grouped by `section`.
+ * - Skips fields whose resolved value is null / undefined / empty (hideIfEmpty).
+ * - Arrays (and `format:"tags"`) render as Badge chips.
+ * - `format:"list"` renders a checklist.
+ * - `format:"heading"` renders large full-width text; `prose` renders sans body text.
+ * - A field with a `section` starts a new panel; section-less fields join the current one.
  * Falls back to displaying the raw JSON string if no structured fields match.
  */
 function ResponsePanel({
@@ -555,91 +590,87 @@ function ResponsePanel({
   responseConfig: ResponseConfig;
   data: unknown;
 }) {
+  const fields = responseConfig.fields ?? [];
   const hasStructured =
     data !== null && data !== undefined && typeof data === "object";
 
-  // Resolve fields; respect hideIfEmpty — when false/omitted, keep null so "—" renders
-  const resolved: ResolvedField[] = hasStructured
-    ? responseConfig.fields.flatMap((f) => {
-        const raw = resolveResponseValue(data, f.key);
-        const value = normaliseValue(raw, f.format);
-        if (value === null && f.hideIfEmpty) return []; // hidden when empty
-        return [{ key: f.key, label: f.label, format: f.format, section: f.section, value }];
-      })
-    : [];
+  // Resolve fields; respect hideIfEmpty — when false/omitted, keep null so "—" renders.
+  // A `section` lives on its anchor field; if that anchor is hidden (hideIfEmpty),
+  // carry the section label forward to the next surviving field so the panel
+  // heading survives even when its first field is empty.
+  const resolved: ResolvedField[] = [];
+  if (hasStructured) {
+    let carriedSection: string | undefined;
+    for (const f of fields) {
+      const raw = resolveResponseValue(data, f.key);
+      const value = normaliseValue(raw, f.format);
+      if (value === null && f.hideIfEmpty) {
+        if (f.section) carriedSection = f.section; // remember the orphaned section
+        continue;
+      }
+      const section = f.section ?? carriedSection;
+      carriedSection = undefined; // consumed by the first visible field
+      resolved.push({
+        key: f.key,
+        label: f.label,
+        format: f.format,
+        prose: f.prose,
+        section,
+        value,
+      });
+    }
+  }
+
+  // Group into panels: a field with `section` starts a new group; section-less
+  // fields join the current one. The first group may be section-less.
+  const groups: FieldGroup[] = [];
+  for (const f of resolved) {
+    if (f.section || groups.length === 0) {
+      groups.push({ section: f.section, fields: [f] });
+    } else {
+      groups[groups.length - 1].fields.push(f);
+    }
+  }
+
+  // Nothing to render if no fields were configured at all.
+  if (fields.length === 0) return null;
+
+  const title = responseConfig.header?.title ?? DEFAULT_TITLE;
 
   return (
-    <div className="mt-8">
-      {/* Panel header — amber accent bar + title */}
-      <div className="mb-3 flex items-center gap-3">
-        <span className="h-px flex-1 bg-success/20" />
-        <h3 className="label-tech text-primary text-[11px] tracking-[0.22em]">
-          {responseConfig.title ?? "Response"}
-        </h3>
-        <span className="h-px flex-1 bg-success/20" />
-      </div>
+    <div className="space-y-4">
+      {/* Accent-divider title — only when there are visible fields */}
+      {hasStructured && resolved.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-success/20" />
+          <h3 className="label-tech text-primary text-[11px] tracking-[0.22em]">
+            {title}
+          </h3>
+          <span className="h-px flex-1 bg-success/20" />
+        </div>
+      )}
 
       {hasStructured && resolved.length > 0 ? (
-        <dl className="divide-y divide-border/30 rounded-md border border-border/40 overflow-hidden">
-          {resolved.map(({ key, label, format, section, value }, i) => {
-            const isEmpty = value === null;
-            const isTags = !isEmpty && (Array.isArray(value) || format === "tags");
-            const isHeading = !isEmpty && format === "heading";
-
-            return (
-              <div key={key} className="animate-field-in" style={{ animationDelay: `${i * 50}ms` }}>
-                {/* Optional section divider */}
-                {section && (
-                  <div className="flex items-center gap-2 bg-border/10 px-3 py-1">
-                    <span className="label-tech text-[9px] tracking-[0.18em] text-muted-foreground/50 uppercase">
-                      {section}
-                    </span>
-                    <span className="h-px flex-1 bg-border/30" />
-                  </div>
-                )}
-
-                {isHeading ? (
-                  /* Heading row — full-width large text */
-                  <div className="px-3 py-3">
-                    <dt className="label-tech mb-1 text-[9px] text-muted-foreground/50 whitespace-nowrap">
-                      {label ?? key}
-                    </dt>
-                    <dd className="font-mono text-base font-medium text-primary leading-snug break-words">
-                      {String(value)}
-                    </dd>
-                  </div>
-                ) : isTags ? (
-                  /* Tags row — label above, chips below */
-                  <div className="px-3 py-2">
-                    <dt className="label-tech mb-2 text-[9px] text-muted-foreground/60 whitespace-nowrap">
-                      {label ?? key}
-                    </dt>
-                    <dd className="flex flex-wrap gap-1.5">
-                      {(Array.isArray(value) ? value : [value]).map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-sm bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary/80 border border-primary/20"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </dd>
-                  </div>
-                ) : (
-                  /* Standard key-value row (or "—" when empty and not hidden) */
-                  <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 px-3 py-2">
-                    <dt className="label-tech text-[9px] text-muted-foreground/60 whitespace-nowrap">
-                      {label ?? key}
-                    </dt>
-                    <dd className={`font-mono text-sm break-words text-right ${isEmpty ? "italic text-muted-foreground/40" : "text-foreground"}`}>
-                      {isEmpty ? "—" : String(value)}
-                    </dd>
-                  </div>
-                )}
+        groups.map((group, gi) => (
+          <div
+            key={gi}
+            className="animate-field-in overflow-hidden rounded-md border border-border/60 bg-card/40"
+            style={{ animationDelay: `${gi * 60}ms` }}
+          >
+            {group.section && (
+              <div className="border-b border-border/50 bg-muted/30 px-4 py-2">
+                <span className="label-tech text-[10px] tracking-[0.18em] text-muted-foreground">
+                  {group.section}
+                </span>
               </div>
-            );
-          })}
-        </dl>
+            )}
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
+              {group.fields.map((f) => (
+                <ResponseCell key={f.key} field={f} />
+              ))}
+            </dl>
+          </div>
+        ))
       ) : hasStructured && resolved.length === 0 ? (
         // All fields were empty — show a minimal fallback
         <p className="rounded border border-border/30 px-3 py-2 text-sm text-muted-foreground/50 italic text-center">
@@ -653,6 +684,80 @@ function ResponsePanel({
             {String(data).slice(0, 500)}
           </pre>
         )
+      )}
+    </div>
+  );
+}
+
+/**
+ * Renders a single resolved field as a grid cell. Full-width (col-span-2) for
+ * heading / tags / list / prose values; a short scalar otherwise.
+ */
+function ResponseCell({ field }: { field: ResolvedField }) {
+  const { key, label, format, prose, value } = field;
+  const isEmpty = value === null;
+  const isHeading = !isEmpty && format === "heading";
+  const isList = !isEmpty && format === "list";
+  const isTags =
+    !isEmpty && !isHeading && !isList && (Array.isArray(value) || format === "tags");
+  const isProse = !isEmpty && !isHeading && !isTags && !isList && prose === true;
+
+  const fullWidth = isHeading || isTags || isList || prose === true;
+
+  return (
+    <div className={fullWidth ? "sm:col-span-2" : undefined}>
+      <dt className="label-tech mb-1 text-[9px] text-muted-foreground/60">
+        {label ?? key}
+      </dt>
+      {isHeading ? (
+        <dd className="text-xl font-semibold text-primary leading-snug break-words">
+          {String(value)}
+        </dd>
+      ) : isProse ? (
+        <dd className="text-sm leading-relaxed text-foreground/90 break-words">
+          {String(value)}
+        </dd>
+      ) : isTags ? (
+        <dd className="flex flex-wrap gap-1.5">
+          {(Array.isArray(value) ? value : [value]).map((tag) => (
+            <Badge
+              key={tag}
+              variant="outline"
+              className="border-primary/30 bg-primary/10 text-primary/90 font-mono text-[11px] font-medium"
+            >
+              {tag}
+            </Badge>
+          ))}
+        </dd>
+      ) : isList ? (
+        <dd>
+          <ul className="space-y-1.5">
+            {(Array.isArray(value) ? value : [value]).map((item) => (
+              <li
+                key={item}
+                className="flex items-start gap-2 text-sm text-foreground/90"
+              >
+                <Badge
+                  variant="outline"
+                  className="h-5 w-5 shrink-0 justify-center p-0 border-success/40 text-success"
+                >
+                  <Check className="h-3 w-3" />
+                </Badge>
+                <span className="break-words leading-snug">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </dd>
+      ) : (
+        <dd
+          className={
+            isEmpty
+              ? "font-mono text-sm italic text-muted-foreground/40"
+              : "font-mono text-sm text-foreground break-words"
+          }
+        >
+          {isEmpty ? "—" : String(value)}
+        </dd>
       )}
     </div>
   );

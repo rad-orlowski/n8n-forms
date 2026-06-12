@@ -125,7 +125,7 @@ is needed. Just create the file, add the env keys, and restart the dev server.
      slug: "my-form",
      title: "My Form",
      submitLabel: "Send",
-     successMessage: "Done!",
+     response: { header: { message: "Done!" } }, // success line (optional)
      pages: [
        {
          fields: [
@@ -156,16 +156,25 @@ Add a `response` key to display fields from n8n's JSON reply in the success pane
 
 ```ts
 response: {
-  title: "Result",
+  header: { title: "Result" },          // accent title above the fields
   fields: [
-    { key: "executionId" },
-    { key: "data.status", label: "Status" },
+    { key: "title", format: "heading" },              // large amber title
+    { key: "summary", prose: true },                  // long text → readable sans
+    { key: "role", label: "Role", section: "Details" }, // groups into a panel
+    { key: "tech_stack", format: "tags" },            // array → Badge chips
+    { key: "key_requirements", format: "list" },      // array → checklist
   ],
 },
 ```
 
 Keys are dot-paths resolved via `es-toolkit/compat` `get`. The reply may be a bare object
 `{...}` or array-wrapped `[{...}]` — both are handled. A legacy `0.` prefix is still tolerated.
+
+The success header is configured via `response.header` (`style`: `compact` (default) / `full` /
+`none`; `heading`, `message`, `title`). The success line lives at `response.header.message`
+(there is no top-level `successMessage`). Per-field: `format` is `heading` / `tags` / `list`,
+`prose: true` renders sans body text, `section` groups fields into a bordered panel, and
+`hideIfEmpty` omits empty rows. Full reference: [`forms/CLAUDE.md`](forms/CLAUDE.md).
 
 ---
 

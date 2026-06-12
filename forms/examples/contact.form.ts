@@ -9,7 +9,7 @@ export default defineForm({
   title: "Contact Us",
   description: "Drop us a line and we'll get back to you.",
   submitLabel: "Send message",
-  successMessage: "Thanks — your message is on its way.",
+  response: { header: { message: "Thanks — your message is on its way." } },
   pages: [
     {
       fields: [

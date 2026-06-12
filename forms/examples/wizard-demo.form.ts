@@ -16,7 +16,6 @@ export default defineForm({
   title: "Wizard Demo",
   description: "Two-page form: page 1 loads its options from n8n at runtime.",
   submitLabel: "Continue",
-  successMessage: "All done — n8n processed your selections.",
   pages: [
     {
       // Page 0 — pre-kickoff: static fields only
@@ -66,7 +65,10 @@ export default defineForm({
     },
   ],
   response: {
-    title: "Result from n8n",
+    header: {
+      message: "All done — n8n processed your selections.",
+      title: "Result from n8n",
+    },
     fields: [
       { key: "category", label: "Category" },
       { key: "choice", label: "Chosen option" },

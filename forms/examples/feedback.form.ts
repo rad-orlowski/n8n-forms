@@ -9,7 +9,7 @@ export default defineForm({
   title: "Share Feedback",
   description: "Tell us what's working and what isn't.",
   submitLabel: "Submit feedback",
-  successMessage: "Appreciated — every note gets read.",
+  response: { header: { message: "Appreciated — every note gets read." } },
   pages: [
     {
       fields: [

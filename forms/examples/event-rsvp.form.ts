@@ -9,7 +9,7 @@ export default defineForm({
   title: "Event RSVP",
   description: "Reserve your spot for the launch meetup.",
   submitLabel: "Confirm RSVP",
-  successMessage: "You're on the list — see you there.",
+  response: { header: { message: "You're on the list — see you there." } },
   pages: [
     {
       fields: [
