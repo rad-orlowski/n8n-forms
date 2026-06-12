@@ -1,8 +1,9 @@
 import type { FormSchema } from "@/lib/schema";
 
-// Auto-discover all form definitions from the top-level forms/ directory.
-// To add a form: create forms/<slug>.form.ts — no registration step needed here.
-const modules = import.meta.glob("../../forms/*.form.ts", {
+// Auto-discover all form definitions under the top-level forms/ directory
+// (including subfolders like forms/examples/). To add a form: create
+// forms/<slug>.form.ts — no registration step needed here.
+const modules = import.meta.glob("../../forms/**/*.form.ts", {
   eager: true,
 }) as Record<string, { default: FormSchema }>;
 

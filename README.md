@@ -6,6 +6,10 @@
 
 A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook triggers. The entire app builds down to **a single portable `forms.html`** that runs from `file://` — no server, no deployment, no dependencies at runtime.
 
+<p align="center">
+  <img src="docs/images/grid.png" alt="Form console home — a dark, amber-accented grid of available forms" width="820">
+</p>
+
 ---
 
 ## How it works
@@ -15,6 +19,14 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 3. Open `forms.html` directly in a browser. Fill out a form, hit Submit. The page POSTs JSON to the n8n webhook and renders the response.
 
 > **Note:** Webhook URLs are baked into the bundle at build time — they are not runtime secrets. Keep `.env` out of git (it is gitignored). Anyone with the HTML file can read the URLs.
+
+## Screenshots
+
+| Filling out a form | Rich-text field |
+|---|---|
+| [![A contact form with name, email, topic, and message fields filled in](docs/images/contact.png)](docs/images/contact.png) | [![A feedback form showing the TipTap rich-text editor with a bulleted list and bold text](docs/images/feedback.png)](docs/images/feedback.png) |
+
+> The forms above ship as runnable examples in [`forms/examples/`](forms/examples) — copy one as a starting point for your own.
 
 ---
 
@@ -62,7 +74,8 @@ Open `forms.html` in any browser — no server needed.
 
 ```
 .
-├── forms/                  # one *.form.ts per form (auto-discovered)
+├── forms/                  # one *.form.ts per form (auto-discovered, recursively)
+│   └── examples/           # runnable example forms (contact, feedback, event-rsvp)
 ├── src/
 │   ├── components/
 │   │   ├── FormShell.tsx   # main template (RHF + zod + submit + response)
@@ -84,9 +97,9 @@ docs/
 
 ## Adding a form
 
-The app auto-discovers every `*.form.ts` in the top-level `forms/` directory via
-`import.meta.glob` — no manual registration is needed. Just create the file, add
-the env key, and restart `bun dev`.
+The app auto-discovers every `*.form.ts` under the `forms/` directory (including
+subfolders like `forms/examples/`) via `import.meta.glob` — no manual registration
+is needed. Just create the file, add the env key, and restart `bun dev`.
 
 1. **Create** `forms/<slug>.form.ts`:
 
@@ -115,7 +128,8 @@ the env key, and restart `bun dev`.
 
 The full form schema is the source of truth in [`src/lib/schema.ts`](src/lib/schema.ts)
 (`FieldDef`, `FormSchema`, `ResponseConfig`). See [`forms/ping.form.ts`](forms/ping.form.ts)
-for a minimal working example.
+for a minimal working example, or [`forms/examples/`](forms/examples) for fuller forms
+that exercise selects, ratings, dates, and the rich-text field.
 
 ### Rendering the webhook response
 
