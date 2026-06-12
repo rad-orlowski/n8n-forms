@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FormShell } from "@/components/FormShell";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
@@ -58,9 +59,14 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
           )}
         />
 
-        <h2 className="font-display text-lg font-semibold text-card-foreground leading-tight mb-1">
-          {form.title}
-        </h2>
+        <div className="flex items-center gap-2.5 mb-1">
+          {form.icon && (
+            <form.icon className="h-4 w-4 shrink-0 text-primary opacity-80" />
+          )}
+          <h2 className="font-display text-lg font-semibold text-card-foreground leading-tight">
+            {form.title}
+          </h2>
+        </div>
 
         {form.description && (
           <p className="text-sm text-muted-foreground leading-relaxed mb-3">
@@ -138,14 +144,17 @@ export default function App() {
   const form = slug ? getForm(slug) : undefined;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-5 py-12 md:py-16">
-      {slug === "" ? (
-        <ConsoleIndex />
-      ) : form ? (
-        <FormShell schema={form} />
-      ) : (
-        <UnknownForm slug={slug} />
-      )}
-    </div>
+    <>
+      <ThemeSwitcher />
+      <div className="mx-auto w-full max-w-2xl px-5 py-12 md:py-16">
+        {slug === "" ? (
+          <ConsoleIndex />
+        ) : form ? (
+          <FormShell schema={form} />
+        ) : (
+          <UnknownForm slug={slug} />
+        )}
+      </div>
+    </>
   );
 }

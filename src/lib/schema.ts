@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { ControllerRenderProps, FieldValues } from "react-hook-form";
+import type { LucideIcon } from "lucide-react";
 import { z } from "zod";
 
 /**
@@ -70,6 +71,8 @@ export interface FormSchema {
   slug: string;
   title: string;
   description?: string;
+  /** Optional lucide-react icon component shown in the card and form header. */
+  icon?: LucideIcon;
   /** n8n Production webhook URL this form POSTs to. */
   webhook: string;
   submitLabel?: string;

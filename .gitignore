@@ -32,6 +32,9 @@ forms.html
 *.sln
 *.sw?
 
+# Playwright MCP — screenshots, snapshots, console logs
+.playwright-mcp/
+
 # AI Coding
 CLAUDE.md
 AGENTS.md

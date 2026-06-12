@@ -120,7 +120,12 @@ export function FormShell({ schema }: { schema: FormSchema }) {
 
       <header className="mt-6">
         <p className="label-tech">form · {schema.slug}</p>
-        <h1 className="mt-2 text-3xl font-bold md:text-4xl">{schema.title}</h1>
+        <div className="mt-2 flex items-center gap-3">
+          {schema.icon && (
+            <schema.icon className="h-8 w-8 shrink-0 text-primary opacity-80" />
+          )}
+          <h1 className="text-3xl font-bold md:text-4xl">{schema.title}</h1>
+        </div>
         {schema.description && (
           <p className="mt-2 max-w-prose text-muted-foreground">
             {schema.description}

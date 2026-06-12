@@ -1,7 +1,9 @@
+import { Radio } from "lucide-react";
 import { defineForm } from "@/lib/schema";
 
 export default defineForm({
   slug: "ping",
+  icon: Radio,
   title: "Ping",
   description: "Smoke test — proves the form → n8n webhook pipe works.",
   webhook: import.meta.env.VITE_WEBHOOK_PING,
