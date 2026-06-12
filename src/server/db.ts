@@ -97,7 +97,15 @@ function gcExpired(): void {
 // CRUD helpers
 // ---------------------------------------------------------------------------
 
-const stmtInsert = db.prepare<void, SessionRow>(`
+const stmtInsert = db.prepare<void, {
+  $sessionId: string;
+  $formSlug: string;
+  $resumeUrl: string | null;
+  $lastPayload: string | null;
+  $done: number;
+  $createdAt: string;
+  $updatedAt: string;
+}>(`
   INSERT INTO sessions (sessionId, formSlug, resumeUrl, lastPayload, done, createdAt, updatedAt)
   VALUES ($sessionId, $formSlug, $resumeUrl, $lastPayload, $done, $createdAt, $updatedAt)
 `);
@@ -137,7 +145,16 @@ export function createSession(opts: {
     createdAt: now,
     updatedAt: now,
   };
-  stmtInsert.run(row);
+  // bun:sqlite named params must be bound with the `$` prefix on the keys.
+  stmtInsert.run({
+    $sessionId: row.sessionId,
+    $formSlug: row.formSlug,
+    $resumeUrl: row.resumeUrl,
+    $lastPayload: row.lastPayload,
+    $done: row.done,
+    $createdAt: row.createdAt,
+    $updatedAt: row.updatedAt,
+  });
   return rowToSession(row);
 }
 
@@ -161,7 +178,9 @@ export function updateSession(
     $resumeUrl: patch.resumeUrl !== undefined ? (patch.resumeUrl ?? null) : existing.resumeUrl,
     $lastPayload:
       patch.lastPayload !== undefined
-        ? JSON.stringify(patch.lastPayload)
+        ? patch.lastPayload === null
+          ? null
+          : JSON.stringify(patch.lastPayload)
         : existing.lastPayload,
     $done: patch.done !== undefined ? (patch.done ? 1 : 0) : existing.done,
     $updatedAt: new Date().toISOString(),

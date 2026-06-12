@@ -57,8 +57,11 @@ sessions.post("/:id/step", async (c) => {
   }
 
   if (result.pending) {
-    // Clear the resumeUrl optimistically; it will be refreshed by the callback
-    updateSession(sessionId, { resumeUrl: null });
+    // Clear resumeUrl AND the previously buffered payload: the prior step's
+    // result has now been consumed (the client advanced and submitted this
+    // step), so it must not be replayed when the browser re-opens SSE for the
+    // fresh callback. resumeUrl + lastPayload are refreshed by the callback.
+    updateSession(sessionId, { resumeUrl: null, lastPayload: null });
     return c.json({ pending: true });
   }
 
