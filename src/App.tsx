@@ -172,7 +172,10 @@ export default function App() {
         {slug === "" ? (
           <ConsoleIndex />
         ) : form ? (
-          <FormShell schema={form} token={token} />
+          // key by slug so navigating between forms remounts FormShell with
+          // fresh wizard state (phase/session/answers) instead of leaking the
+          // previous form's "done" state.
+          <FormShell key={form.slug} schema={form} token={token} />
         ) : (
           <UnknownForm slug={slug} />
         )}
