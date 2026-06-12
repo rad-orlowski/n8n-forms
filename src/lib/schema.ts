@@ -103,6 +103,24 @@ export interface ResponseField {
   key: string;
   /** Display label — defaults to a humanized key if omitted. */
   label?: string;
+  /**
+   * Rendering hint:
+   * - `"heading"` — large prominent text, shown full-width (good for titles)
+   * - `"tags"` — renders array (or comma-separated string) as inline chips
+   * Arrays are auto-detected as tags even without this flag.
+   */
+  format?: "heading" | "tags";
+  /**
+   * When set, renders a labelled divider before this field — useful for
+   * grouping related rows visually (e.g. "Compensation", "Requirements").
+   */
+  section?: string;
+  /**
+   * When `true`, the row is omitted entirely if the resolved value is empty
+   * (null, undefined, empty string, or empty array).
+   * Default (`false`/omitted) shows "—" so the field is visibly absent.
+   */
+  hideIfEmpty?: boolean;
 }
 
 /**

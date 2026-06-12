@@ -52,6 +52,11 @@ forms.post("/:slug/start", async (c) => {
     return c.json({ sessionId, pending: true });
   }
 
+  // Workflow-level business error (n8n returned 2xx but __error: true)
+  if (result.workflowError) {
+    return c.json({ error: result.message }, 422);
+  }
+
   // Synchronous result — store resumeUrl + done, return data to browser
   updateSession(sessionId, {
     resumeUrl: result.resumeUrl,

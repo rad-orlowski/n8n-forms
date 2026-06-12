@@ -150,6 +150,36 @@ first submit).
 
 ---
 
+## Reporting a business error
+
+If the workflow completed successfully at the HTTP level but the result is an
+error (e.g. "User already exists", "Validation failed"), include `__error: true`
+in the reply body:
+
+```json
+{
+  "__error": true,
+  "message": "A user with that email already exists."
+}
+```
+
+This works in both the **synchronous** and **async callback** reply paths.
+
+| Field | Required | Notes |
+|---|---|---|
+| `__error` | Yes | Must be the boolean `true` |
+| `message` | Recommended | Shown verbatim in the form's error panel; defaults to "The workflow reported an error." if absent |
+
+The BFF detects this sentinel before forwarding to the browser:
+- **Sync path** — the route returns `HTTP 422` with `{ "error": "<message>" }`.  
+  The browser's existing BFF-error handler catches it and transitions to the error panel.
+- **Async / callback path** — the BFF relays the error through the SSE stream.  
+  The browser's SSE handler transitions to the error panel.
+
+The `__error` and `message` keys are **never** forwarded as `data` — they are stripped by the BFF.
+
+---
+
 ## Done signal
 
 The workflow signals completion by setting `"done": true` (or by omitting

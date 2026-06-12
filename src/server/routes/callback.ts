@@ -35,16 +35,32 @@ export async function callbackHandler(c: Context): Promise<Response> {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const data = body.data ?? null;
+  // Detect workflow-level business error (__error: true in callback payload).
+  // Strip the sentinel keys so they never reach the browser as raw data.
+  const workflowError = body.__error === true;
+  const errorMessage = workflowError
+    ? (typeof body.message === "string" && body.message.trim()
+        ? body.message.trim()
+        : "The workflow reported an error.")
+    : undefined;
+
+  const data = workflowError ? null : (body.data ?? null);
   const resumeUrl = typeof body.resumeUrl === "string" ? body.resumeUrl : null;
-  const done = Boolean(body.done ?? !resumeUrl);
+  // A workflow error always ends the session.
+  const done = workflowError ? true : Boolean(body.done ?? !resumeUrl);
+
+  // For replay: store a sentinel so a browser that reconnects after missing the
+  // live push still receives the error rather than a phantom success panel.
+  const replayPayload = workflowError
+    ? { __workflowError: true, __errorMessage: errorMessage }
+    : data;
 
   // Persist before pushing — SSE replay needs current DB state
-  updateSession(sessionId, { resumeUrl, lastPayload: data, done });
+  updateSession(sessionId, { resumeUrl, lastPayload: replayPayload, done });
 
   // Push to any connected SSE subscriber; if none connected, the data is
   // buffered in DB and will be replayed when the browser reconnects.
-  publish(sessionId, { data, resumeUrl, done });
+  publish(sessionId, { data, resumeUrl, done, workflowError: workflowError || undefined, errorMessage });
 
   return new Response(null, { status: 204 });
 }

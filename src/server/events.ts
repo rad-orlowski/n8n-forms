@@ -16,6 +16,10 @@ export interface SseEvent {
   resumeUrl: string | null;
   /** True when the workflow has finished */
   done: boolean;
+  /** True when the workflow signalled __error: true in its callback payload */
+  workflowError?: true;
+  /** Workflow-supplied error message (only present when workflowError is true) */
+  errorMessage?: string;
 }
 
 type SsePushFn = (event: SseEvent) => void;

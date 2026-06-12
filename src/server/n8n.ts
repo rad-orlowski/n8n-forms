@@ -61,6 +61,7 @@ export interface N8nPayload {
 /** Returned when n8n replies synchronously with a body. */
 export interface N8nSyncResult {
   pending: false;
+  workflowError?: false;
   data: unknown;
   resumeUrl: string | null;
   done: boolean;
@@ -71,7 +72,19 @@ export interface N8nPendingResult {
   pending: true;
 }
 
-export type N8nResult = N8nSyncResult | N8nPendingResult;
+/**
+ * Returned when n8n replies 2xx but the payload contains `__error: true`.
+ * This is a workflow-level business error — the HTTP call succeeded, but the
+ * workflow deliberately signalled a failure.  The BFF surfaces this as a 422
+ * so the form can show the workflow's own error message.
+ */
+export interface N8nWorkflowErrorResult {
+  pending: false;
+  workflowError: true;
+  message: string;
+}
+
+export type N8nResult = N8nSyncResult | N8nPendingResult | N8nWorkflowErrorResult;
 
 /** Typed error thrown when n8n returns a non-2xx response. */
 export class N8nCallError extends Error {
@@ -140,6 +153,16 @@ export async function postToN8n(
     Array.isArray(body) && body.length > 0 && typeof body[0] === "object"
       ? (body[0] as Record<string, unknown>)
       : obj;
+
+  // Workflow-level business error: n8n returned 2xx but signalled __error: true.
+  // The form will show the workflow's own message rather than a success panel.
+  if (payload0.__error === true) {
+    const message =
+      typeof payload0.message === "string" && payload0.message.trim()
+        ? payload0.message.trim()
+        : "The workflow reported an error.";
+    return { pending: false, workflowError: true, message };
+  }
 
   // If the workflow explicitly returned a `data` key, use it.
   // Otherwise expose the entire payload (minus BFF-internal keys) so form

@@ -65,6 +65,11 @@ sessions.post("/:id/step", async (c) => {
     return c.json({ pending: true });
   }
 
+  // Workflow-level business error (n8n returned 2xx but __error: true)
+  if (result.workflowError) {
+    return c.json({ error: result.message }, 422);
+  }
+
   // Sync result
   updateSession(sessionId, {
     resumeUrl: result.resumeUrl,
@@ -89,12 +94,24 @@ sessions.get("/:id/events", (c) => {
   return streamSSE(c, async (stream) => {
     // Replay buffered payload for reconnect support
     if (session.lastPayload !== null) {
+      // Detect workflow-error sentinel written by callback.ts
+      const p = session.lastPayload as Record<string, unknown>;
+      const isErrorSentinel =
+        typeof p === "object" && p !== null && p.__workflowError === true;
+
       await stream.writeSSE({
         event: "step",
         data: JSON.stringify({
-          data: session.lastPayload,
+          data: isErrorSentinel ? null : session.lastPayload,
           done: session.done,
           replayed: true,
+          ...(isErrorSentinel && {
+            workflowError: true,
+            errorMessage:
+              typeof p.__errorMessage === "string"
+                ? p.__errorMessage
+                : "The workflow reported an error.",
+          }),
         } satisfies StepEventPayload),
         id: "replay",
       });
@@ -112,6 +129,10 @@ sessions.get("/:id/events", (c) => {
           data: JSON.stringify({
             data: event.data,
             done: event.done,
+            ...(event.workflowError && {
+              workflowError: true,
+              errorMessage: event.errorMessage,
+            }),
           } satisfies StepEventPayload),
         }).finally(resolve);
       };
@@ -133,6 +154,10 @@ interface StepEventPayload {
   data: unknown;
   done: boolean;
   replayed?: boolean;
+  /** Present when the workflow signalled __error: true in its callback */
+  workflowError?: boolean;
+  /** Workflow-supplied error message; only present when workflowError is true */
+  errorMessage?: string;
 }
 
 export default sessions;
