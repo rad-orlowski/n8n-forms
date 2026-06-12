@@ -6,7 +6,7 @@ import { z } from "zod";
 /**
  * Field + form contract shared by the whole system.
  *
- * - A *form* is one file in src/forms/*.form.ts that calls defineForm(...).
+ * - A *form* is one file in forms/*.form.ts that calls defineForm(...).
  * - A *field* is rendered by a component registered in src/components/fields/index.ts
  *   keyed by `type`. Add a new `type` string + component there to extend the system;
  *   no other file needs to change.
@@ -46,8 +46,19 @@ export interface FieldDef {
   description?: string;
   placeholder?: string;
   required?: boolean;
-  /** select */
+  /** select — static options (used when optionsFrom is absent, or on page 0) */
   options?: FieldOption[];
+  /**
+   * Dynamic options binding — dot-path into the step data returned by n8n
+   * (e.g. "options" resolves to an array shaped `[{label, value}]`).
+   * Only allowed on page index ≥ 1 (pages after the initial submit).
+   */
+  optionsFrom?: string;
+  /**
+   * Dynamic value prefill — dot-path into step data that pre-populates this
+   * field's value. Only allowed on page index ≥ 1.
+   */
+  valueFrom?: string;
   /** number / rating bounds */
   min?: number;
   max?: number;
@@ -60,6 +71,26 @@ export interface FieldDef {
   variant?: "info" | "warning" | "danger" | "success";
   /** Heading level for `heading` fields. Defaults to 2. */
   level?: 2 | 3;
+}
+
+/**
+ * One step (page) in a multi-page form.
+ * `fields` is the active field list for that page.
+ */
+export interface PageDef {
+  /** Optional stable identifier (used for analytics / SSE step tracking). */
+  id?: string;
+  /** Page-level title shown above the fields. */
+  title?: string;
+  /** Page-level description shown below the title. */
+  description?: string;
+  /**
+   * When true, a "Retry" button is shown on this page's error panel instead of
+   * "Start over". Use for idempotent pages where re-submitting the same answers
+   * is safe. Defaults to false (errors require restarting the session).
+   */
+  retryable?: boolean;
+  fields: FieldDef[];
 }
 
 /**
@@ -92,12 +123,18 @@ export interface FormSchema {
   description?: string;
   /** Optional lucide-react icon component shown in the card and form header. */
   icon?: LucideIcon;
-  /** n8n Production webhook URL this form POSTs to. */
-  webhook: string;
+  /**
+   * Ordered list of pages. Page 0 is the initial page — the form POSTs to
+   * `/api/forms/:slug/start` when the user submits page 0. Each subsequent
+   * page resumes the n8n execution via `/api/sessions/:id/step`.
+   *
+   * Dynamic fields (`optionsFrom` / `valueFrom`) are only permitted on pages
+   * at index ≥ 1, because no n8n data exists until after the first submit.
+   */
+  pages: PageDef[];
   submitLabel?: string;
   /** Shown in the success panel after a 2xx response. */
   successMessage?: string;
-  fields: FieldDef[];
   /**
    * Optional: declare which fields from the webhook JSON response to render
    * in the success panel. Omitting this shows only successMessage.
@@ -105,8 +142,28 @@ export interface FormSchema {
   response?: ResponseConfig;
 }
 
-/** Identity helper — gives editor autocomplete + type-checking in each form file. */
+/**
+ * Identity helper — gives editor autocomplete + type-checking in each form file.
+ * Also validates that dynamic fields (`optionsFrom` / `valueFrom`) are not placed
+ * on page 0, where no n8n step data exists yet.
+ *
+ * Throws at module load time with a clear diagnostic if the rule is violated.
+ */
 export function defineForm(schema: FormSchema): FormSchema {
+  for (const field of schema.pages[0]?.fields ?? []) {
+    if (field.optionsFrom != null) {
+      throw new Error(
+        `[${schema.slug}] field "${field.name ?? field.type}" uses optionsFrom on page 0 — ` +
+          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit)."
+      );
+    }
+    if (field.valueFrom != null) {
+      throw new Error(
+        `[${schema.slug}] field "${field.name ?? field.type}" uses valueFrom on page 0 — ` +
+          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit)."
+      );
+    }
+  }
   return schema;
 }
 
@@ -137,7 +194,11 @@ export function isStaticField(def: FieldDef): boolean {
   return STATIC_FIELD_TYPES.has(def.type);
 }
 
-/** Build a Zod validation schema from a form's field list. */
+/**
+ * Build a Zod validation schema from a single page's field list.
+ * Call this with `page.fields` for the active page; FormShell resolves
+ * per-page before rendering.
+ */
 export function buildZodSchema(fields: FieldDef[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
 
@@ -202,7 +263,10 @@ export function buildZodSchema(fields: FieldDef[]) {
   return z.object(shape);
 }
 
-/** Default values keyed by field name, so RHF inputs stay controlled. */
+/**
+ * Default values keyed by field name, so RHF inputs stay controlled.
+ * Call this with `page.fields` for the active page.
+ */
 export function defaultValues(fields: FieldDef[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const f of fields) {
