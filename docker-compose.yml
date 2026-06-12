@@ -1,0 +1,9 @@
+services:
+  n8n-forms:
+    build: .
+    env_file: .env
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    restart: unless-stopped
+    # NOTE: not yet wired to the homelab n8n network — add a `networks:` block
+    # and join the existing n8n network when you're ready to connect them.
