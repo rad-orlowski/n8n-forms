@@ -8,34 +8,52 @@ import { forms, getForm } from "@/forms/index";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
-function useHashSlug(): string {
-  const [slug, setSlug] = useState(() =>
-    window.location.hash.replace(/^#\/?/, ""),
-  );
+/**
+ * Returns the slug portion of the URL hash (the part after `#/`), and the
+ * `?t=` token if present in either the hash query-string or the main query.
+ *
+ * Examples:
+ *   #/contact?t=abc  → { slug: "contact", token: "abc" }
+ *   #/ping           → { slug: "ping",    token: null  }
+ *   #/               → { slug: "",        token: null  }
+ */
+function parseHash(): { slug: string; token: string | null } {
+  const hash = window.location.hash.replace(/^#\/?/, ""); // strip leading "#/"
+  const qIdx = hash.indexOf("?");
+  const slug = qIdx === -1 ? hash : hash.slice(0, qIdx);
+  const query = qIdx === -1 ? "" : hash.slice(qIdx + 1);
+  const params = new URLSearchParams(query);
+  // Also check the main (pre-hash) query string as a fallback
+  const mainParams = new URLSearchParams(window.location.search);
+  const token = params.get("t") ?? mainParams.get("t");
+  return { slug, token };
+}
+
+function useHashRoute(): { slug: string; token: string | null } {
+  const [route, setRoute] = useState(parseHash);
 
   useEffect(() => {
-    const onHashChange = () =>
-      setSlug(window.location.hash.replace(/^#\/?/, ""));
+    const onHashChange = () => setRoute(parseHash());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  return slug;
+  return route;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function webhookHost(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
+/** Total field count across all pages (for the console card). */
+function totalFieldCount(form: FormSchema): number {
+  return form.pages.reduce((sum, p) => sum + p.fields.length, 0);
 }
 
 // ── console index ──────────────────────────────────────────────────────────────
 
 function FormCard({ form, index }: { form: FormSchema; index: number }) {
+  const fieldCount = totalFieldCount(form);
+  const pageCount = form.pages.length;
+
   return (
     <a
       href={"#/" + form.slug}
@@ -76,12 +94,16 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
 
         <div className="label-tech flex items-center gap-3 flex-wrap">
           <span>
-            {form.fields.length} field{form.fields.length !== 1 ? "s" : ""}
+            {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </span>
-          <span className="text-border select-none">·</span>
-          <span className="truncate max-w-[240px]">
-            {webhookHost(form.webhook)}
-          </span>
+          {pageCount > 1 && (
+            <>
+              <span className="text-border select-none">·</span>
+              <span>
+                {pageCount} steps
+              </span>
+            </>
+          )}
         </div>
       </Card>
     </a>
@@ -140,7 +162,7 @@ function UnknownForm({ slug }: { slug: string }) {
 // ── app root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const slug = useHashSlug();
+  const { slug, token } = useHashRoute();
   const form = slug ? getForm(slug) : undefined;
 
   return (
@@ -150,7 +172,7 @@ export default function App() {
         {slug === "" ? (
           <ConsoleIndex />
         ) : form ? (
-          <FormShell schema={form} />
+          <FormShell schema={form} token={token} />
         ) : (
           <UnknownForm slug={slug} />
         )}
