@@ -359,6 +359,7 @@ export function FormShell({
         <Form {...form}>
           <form
             ref={formRef}
+            // eslint-disable-next-line react-hooks/refs -- onInvalidSubmit reads formRef.current only when invoked as a submit handler, not during render
             onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
             className="mt-6 space-y-6"
           >
