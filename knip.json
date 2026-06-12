@@ -12,5 +12,10 @@
     "src/lib/tiptap-utils.ts",
     "src/scss.d.ts"
   ],
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "@biomejs/biome",
+    "@secretlint/secretlint-rule-preset-recommend",
+    "@testing-library/react"
+  ]
 }
