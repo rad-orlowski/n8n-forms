@@ -1,0 +1,22 @@
+{
+  "generated": "2026-06-12T15:16:36Z",
+  "adrs": [
+    {
+      "id": "0002",
+      "title": "Update contract-mirroring docs in the same change that alters the contract",
+      "status": "accepted",
+      "file": "0002-keep-contract-mirroring-docs-in-sync.md",
+      "applies_to": [
+        "src/lib/schema.ts",
+        "forms/**",
+        "src/components/fields/**",
+        "src/server/**"
+      ],
+      "tags": [
+        "docs",
+        "process",
+        "contract"
+      ]
+    }
+  ]
+}
