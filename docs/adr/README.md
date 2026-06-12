@@ -1,4 +1,4 @@
-## Consulting ADRs
+# Consulting ADRs
 
 This directory contains Architecture Decision Records (ADRs) — binding records
 of significant architectural and process decisions for this project.

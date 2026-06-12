@@ -28,8 +28,8 @@ Record significant architectural and process decisions as ADRs under `docs/adr/`
 - A generated `README.md` (tiered index) and `.adr-index.json` (hook manifest) are
   produced from frontmatter by `generate.py` — never hand-edited.
 - Scope is expressed via `applies-to` globs, `tags`, or `global: true`.
-- A non-blocking `PreToolUse` hook surfaces the relevant ADR when an agent edits a
-  file matching an accepted ADR's globs.
+- A non-blocking `PreToolUse` hook surfaces the relevant ADR when an agent
+  edits a file matching an accepted ADR's globs.
 - Statuses: `proposed → accepted → (superseded | deprecated)`, plus `rejected`.
   Retired ADRs stay on disk but leave the active index/manifest.
 
