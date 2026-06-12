@@ -1,12 +1,16 @@
 # n8n-forms
 
+[![CI](https://github.com/rad-orlowski/n8n-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/rad-orlowski/n8n-forms/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Built with Bun](https://img.shields.io/badge/built%20with-bun-000000?logo=bun&logoColor=white)](https://bun.sh)
+
 A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook triggers. The entire app builds down to **a single portable `forms.html`** that runs from `file://` — no server, no deployment, no dependencies at runtime.
 
 ---
 
 ## How it works
 
-1. Each form is defined as a TypeScript file (`src/forms/<slug>.form.ts`) that declares fields, validation, and a target webhook URL.
+1. Each form is defined as a TypeScript file (`forms/<slug>.form.ts`) that declares fields, validation, and a target webhook URL.
 2. `bun run build` + `./bundle-artifact.sh` produces `forms.html` — a fully self-contained file with all CSS, JS, and webhook URLs inlined.
 3. Open `forms.html` directly in a browser. Fill out a form, hit Submit. The page POSTs JSON to the n8n webhook and renders the response.
 
@@ -14,11 +18,20 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 
 ---
 
+> **WARNING: `forms.html` contains your secrets.** The built file has every webhook URL
+> inlined in plaintext — treat it exactly like a `.env` file or private key. Never commit
+> it to git (it is gitignored), never share it via email, Slack, or public URLs, and
+> distribute it only to trusted recipients via secure channels. If it is compromised,
+> rebuild with new webhook URLs.
+
+---
+
 ## Quick start
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) — used for everything; do not use npm/pnpm/yarn
+- [Bun](https://bun.sh) — **required**. This project does not support npm, yarn, or pnpm.
+  Use `bun` for every command shown below.
 - A running n8n instance with at least one Webhook node (see [n8n docs](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/))
 
 ### Setup
@@ -31,9 +44,15 @@ bun dev                        # dev server at http://localhost:5173
 
 ### Build the portable artifact
 
-```bash
-./bundle-artifact.sh           # outputs forms.html
-```
+Two commands are involved in producing the final file:
+
+| Command | What it does | Output |
+|---|---|---|
+| `bun run build` | Vite build only | `dist/` directory |
+| `./bundle-artifact.sh` | Full pipeline: build → patch → inline | Single portable `forms.html` |
+
+For day-to-day distribution use `./bundle-artifact.sh`. `bun run build` alone is useful if
+you only need the `dist/` output (e.g. for further scripting).
 
 Open `forms.html` in any browser — no server needed.
 
@@ -43,8 +62,8 @@ Open `forms.html` in any browser — no server needed.
 
 ```
 .
+├── forms/                  # one *.form.ts per form (auto-discovered)
 ├── src/
-│   ├── forms/              # one *.form.ts per form
 │   ├── components/
 │   │   ├── FormShell.tsx   # main template (RHF + zod + submit + response)
 │   │   ├── fields/         # field components + FIELD_REGISTRY
@@ -65,7 +84,11 @@ docs/
 
 ## Adding a form
 
-1. **Create** `src/forms/<slug>.form.ts`:
+The app auto-discovers every `*.form.ts` in the top-level `forms/` directory via
+`import.meta.glob` — no manual registration is needed. Just create the file, add
+the env key, and restart `bun dev`.
+
+1. **Create** `forms/<slug>.form.ts`:
 
    ```ts
    import { defineForm } from "@/lib/schema";
@@ -84,18 +107,15 @@ docs/
    });
    ```
 
-2. **Register** it in `src/forms/index.ts`:
-
-   ```ts
-   import myForm from "./my-form.form";
-   export const forms: FormSchema[] = [...existingForms, myForm];
-   ```
-
-3. **Add the env key** to `.env` and `.env.example`:
+2. **Add the env key** to `.env` and `.env.example`:
 
    ```
    VITE_WEBHOOK_MY_FORM=https://YOUR-N8N-HOST/webhook/my-form
    ```
+
+The full form schema is the source of truth in [`src/lib/schema.ts`](src/lib/schema.ts)
+(`FieldDef`, `FormSchema`, `ResponseConfig`). See [`forms/ping.form.ts`](forms/ping.form.ts)
+for a minimal working example.
 
 ### Rendering the webhook response
 
@@ -127,9 +147,17 @@ Keys are dot-paths resolved via `es-toolkit/compat` `get`. n8n's default echo sh
 | `checkbox`  | shadcn `<Checkbox>` | sends boolean                                    |
 | `date`      | shadcn `<Calendar>` | sends ISO date string                            |
 | `rating`    | Star rating       | `max` defaults to 5, sends number                  |
-| `richtext`  | TipTap editor     | sends HTML; debounced ~250 ms, flushes on blur     |
+| `richtext`  | TipTap editor     | sends HTML; debounced ~250 ms, flushes on blur — **see note below** |
 
-To add a custom field type, see `src/components/fields/CLAUDE.md`.
+> **Rich-text field — HTML output:** The `richtext` field submits TipTap's HTML to the
+> webhook. The form renders response data as plain text only (no `dangerouslySetInnerHTML`),
+> so the app itself is safe. However, the receiving n8n workflow is responsible for
+> sanitizing this HTML before storing it in a database or rendering it in any other web
+> context.
+
+To add a custom field type: build a component accepting `{ field, def }: FieldComponentProps`,
+then register it in `FIELD_REGISTRY` in [`src/components/fields/index.ts`](src/components/fields/index.ts).
+Use the new `type` string in any `*.form.ts`.
 
 ---
 
@@ -140,6 +168,34 @@ When `forms.html` is opened via `file://`, the browser sends `Origin: null`. Eve
 > **Allowed Origins → `*`**
 
 A missing or wrong CORS header shows up as a network error (status 0) in the form's error state.
+
+### CORS & security implications
+
+Setting `Allowed Origins: *` is a required trade-off for the `file://` design, but it means
+**any website can POST arbitrary JSON to your webhook** — not just your form. Potential risks:
+
+- Spam and garbage submissions from malicious sites
+- Cost escalation if your n8n instance charges per execution
+- Data poisoning if the workflow writes submissions to a database without validation
+
+**Mitigations — implement these in your n8n workflow:**
+
+1. **Keep webhook URLs secret** — treat them like API keys; never publish or share them
+2. **Validate the request payload** — check required fields, expected shapes, and domain-specific constraints at the start of every workflow
+3. **Rate-limit by IP or session** — add a rate-limit node before any expensive operations
+4. **Monitor for abuse** — log all submissions and alert on sudden spikes or repeated failures
+5. **IP whitelisting** (if feasible) — if forms are used only on known networks, restrict access at the firewall or n8n level
+
+The n8n webhook itself cannot enforce origin-specific CORS because of the `file://` null-origin
+constraint. All security enforcement must happen inside the workflow.
+
+### Idempotency and POST retry
+
+The form client intentionally does not retry failed POST requests (see `src/lib/submit.ts`).
+This avoids double-triggering workflows when a submission is ambiguous (e.g., a timeout where
+the server may have already processed the request). If your workflow must be idempotent
+(e.g., it inserts a unique record), implement server-side deduplication in n8n — for example,
+by storing a client-generated submission ID and checking it before processing.
 
 ---
 
