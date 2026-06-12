@@ -2,6 +2,16 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- no-FOUC: apply stored theme before first paint -->
+    <script>
+      (function(){
+        var s = localStorage.getItem('n8n-forms-theme') || 'system';
+        var d = s === 'system'
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          : s === 'dark';
+        document.documentElement.classList.toggle('dark', d);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>n8n · form console</title>

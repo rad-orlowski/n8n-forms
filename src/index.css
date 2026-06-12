@@ -16,7 +16,44 @@
 */
 
 @layer base {
-  :root,
+  /* ── light (default) ───────────────────────────────────────────────────── */
+  :root {
+    --background: 220 16% 94%;
+    --foreground: 222 28% 12%;
+
+    --card: 0 0% 99%;
+    --card-foreground: 222 28% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 28% 12%;
+
+    --primary: 36 96% 48%;
+    --primary-foreground: 222 40% 8%;
+
+    --secondary: 220 12% 87%;
+    --secondary-foreground: 222 28% 15%;
+
+    --muted: 220 12% 90%;
+    --muted-foreground: 220 10% 44%;
+
+    --accent: 174 58% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 58% 38%;
+
+    --border: 220 13% 82%;
+    --input: 220 13% 86%;
+    --ring: 36 96% 48%;
+
+    --radius: 0.4rem;
+    --grid-line: hsl(0 0% 0% / 0.05);
+    color-scheme: light;
+  }
+
+  /* ── dark ─────────────────────────────────────────────────────────────── */
   .dark {
     --background: 222 20% 7%;
     --foreground: 40 14% 90%;
@@ -49,16 +86,14 @@
     --ring: 36 96% 56%;
 
     --radius: 0.4rem;
+    --grid-line: hsl(0 0% 100% / 0.025);
+    color-scheme: dark;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-  }
-
-  html {
-    color-scheme: dark;
   }
 
   body {
@@ -71,8 +106,8 @@
         hsl(36 96% 56% / 0.10),
         transparent 60%
       ),
-      linear-gradient(hsl(0 0% 100% / 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(0 0% 100% / 0.025) 1px, transparent 1px);
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 44px 44px, 44px 44px;
     background-attachment: fixed;
   }

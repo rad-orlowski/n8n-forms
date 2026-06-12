@@ -29,9 +29,19 @@ export interface FieldDef {
     | "checkbox"
     | "date"
     | "rating"
+    | "richtext"
+    // ── static display-only ──────────────────────────────────────────────
+    | "heading"
+    | "description"
+    | "image"
+    | "alert"
     | (string & {});
-  /** Key sent to the webhook payload. */
-  name: string;
+  /**
+   * Key sent to the webhook payload.
+   * Required for input fields; omit for static display fields
+   * (`heading`, `description`, `image`, `alert`).
+   */
+  name?: string;
   label?: string;
   description?: string;
   placeholder?: string;
@@ -41,6 +51,15 @@ export interface FieldDef {
   /** number / rating bounds */
   min?: number;
   max?: number;
+  // ── static field props ──────────────────────────────────────────────────
+  /** Primary body text for `description` and `alert` fields. */
+  content?: string;
+  /** Image URL (or data URI) for `image` fields. */
+  src?: string;
+  /** Alert colour scheme. Defaults to "info". */
+  variant?: "info" | "warning" | "danger" | "success";
+  /** Heading level for `heading` fields. Defaults to 2. */
+  level?: 2 | 3;
 }
 
 /**
@@ -102,11 +121,29 @@ export interface FieldComponentProps {
 
 export type FieldComponent = ComponentType<FieldComponentProps>;
 
+/**
+ * Field types that are pure display elements — they have no RHF registration,
+ * no Zod schema entry, and no value in the webhook payload.
+ */
+export const STATIC_FIELD_TYPES = new Set([
+  "heading",
+  "description",
+  "image",
+  "alert",
+]);
+
+/** Returns true for display-only fields that carry no form value. */
+export function isStaticField(def: FieldDef): boolean {
+  return STATIC_FIELD_TYPES.has(def.type);
+}
+
 /** Build a Zod validation schema from a form's field list. */
 export function buildZodSchema(fields: FieldDef[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const f of fields) {
+    if (isStaticField(f)) continue; // display-only — no validation
+    if (!f.name) continue; // safety guard for misconfigured input fields
     let s: z.ZodTypeAny;
 
     switch (f.type) {
@@ -169,6 +206,7 @@ export function buildZodSchema(fields: FieldDef[]) {
 export function defaultValues(fields: FieldDef[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const f of fields) {
+    if (isStaticField(f) || !f.name) continue;
     values[f.name] =
       f.type === "checkbox" ? false : f.type === "rating" ? 0 : "";
   }

@@ -20,10 +20,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { FIELD_REGISTRY } from "@/components/fields";
+import { FIELD_REGISTRY, STATIC_FIELD_REGISTRY } from "@/components/fields";
 import {
   buildZodSchema,
   defaultValues,
+  isStaticField,
   type FieldDef,
   type FormSchema,
   type ResponseConfig,
@@ -141,14 +142,28 @@ export function FormShell({ schema }: { schema: FormSchema }) {
           onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
           className="mt-6 space-y-6"
         >
-          {schema.fields.map((def) => (
-            <FormField
-              key={def.name}
-              control={form.control}
-              name={def.name}
-              render={({ field }) => <FieldRow def={def} field={field} />}
-            />
-          ))}
+          {schema.fields.map((def, i) => {
+            // Static display fields bypass RHF entirely — no Controller, no payload.
+            if (isStaticField(def)) {
+              const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
+              if (!StaticComponent) return null;
+              return (
+                <StaticComponent
+                  key={def.name ?? `__static_${i}`}
+                  def={def}
+                />
+              );
+            }
+            // Input fields go through RHF as before.
+            return (
+              <FormField
+                key={def.name ?? `__input_${i}`}
+                control={form.control}
+                name={def.name ?? `__input_${i}`}
+                render={({ field }) => <FieldRow def={def} field={field} />}
+              />
+            );
+          })}
 
           {result && !result.ok && (
             <div className="animate-panel-in flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
