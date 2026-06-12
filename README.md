@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built with Bun](https://img.shields.io/badge/built%20with-bun-000000?logo=bun&logoColor=white)](https://bun.sh)
 
-A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook triggers. The entire app builds down to **a single portable `forms.html`** that runs from `file://` — no server, no deployment, no dependencies at runtime.
+A React form console backed by a **Hono/Bun BFF server**. Forms submit to the BFF, which holds webhook secrets server-side and proxies traffic to [n8n](https://n8n.io). Supports multi-page (wizard) forms, async results via SSE, and dynamic field values fed back from n8n at runtime.
 
 <p align="center">
   <img src="docs/images/grid.png" alt="Form console home — a dark, amber-accented grid of available forms" width="820">
@@ -14,11 +14,12 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 
 ## How it works
 
-1. Each form is defined as a TypeScript file (`forms/<slug>.form.ts`) that declares fields, validation, and a target webhook URL.
-2. `bun run build` + `./bundle-artifact.sh` produces `forms.html` — a fully self-contained file with all CSS, JS, and webhook URLs inlined.
-3. Open `forms.html` directly in a browser. Fill out a form, hit Submit. The page POSTs JSON to the n8n webhook and renders the response.
+1. Each form is defined as a TypeScript file (`forms/<slug>.form.ts`) using `pages: PageDef[]`.
+2. `bun run build` produces the SPA in `dist/`; `bun start` serves it via the BFF.
+3. The browser submits answers to the BFF (`/api/forms/:slug/start`, then `/api/sessions/:id/step` for each subsequent page). The BFF holds webhook URLs and form tokens — they are never sent to the browser.
+4. n8n receives the proxied request and can return data synchronously or asynchronously (202 + SSE callback). Multi-page forms resume the n8n execution via the Wait-node `resumeUrl` stored server-side.
 
-> **Note:** Webhook URLs are baked into the bundle at build time — they are not runtime secrets. Keep `.env` out of git (it is gitignored). Anyone with the HTML file can read the URLs.
+> **Secrets stay on the server.** Webhook URLs and form tokens live in `.env` — they are read by the Bun process at runtime, not baked into the JS bundle. Keep `.env` out of git (it is gitignored).
 
 ## Screenshots
 
@@ -30,11 +31,9 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 
 ---
 
-> **WARNING: `forms.html` contains your secrets.** The built file has every webhook URL
-> inlined in plaintext — treat it exactly like a `.env` file or private key. Never commit
-> it to git (it is gitignored), never share it via email, Slack, or public URLs, and
-> distribute it only to trusted recipients via secure channels. If it is compromised,
-> rebuild with new webhook URLs.
+> **WARNING: `.env` contains your secrets.** Webhook URLs and form tokens are read
+> by the server at runtime — never commit `.env`, never share it, and treat it like a
+> private key. If compromised, rotate the webhook URLs in n8n and update `.env`.
 
 ---
 
@@ -49,24 +48,32 @@ A self-contained React form console that POSTs to [n8n](https://n8n.io) webhook 
 ### Setup
 
 ```bash
-cp .env.example .env          # fill in your webhook URLs
+cp .env.example .env          # fill in webhook URLs + form tokens
 bun install
-bun dev                        # dev server at http://localhost:5173
 ```
 
-### Build the portable artifact
+### Local development
 
-Two commands are involved in producing the final file:
+```bash
+bun dev
+```
 
-| Command | What it does | Output |
-|---|---|---|
-| `bun run build` | Vite build only | `dist/` directory |
-| `./bundle-artifact.sh` | Full pipeline: build → patch → inline | Single portable `forms.html` |
+One terminal. Starts the BFF (Hono/Bun) with Vite in middleware mode — HMR works, `/api/*` routes are live, everything on a single port.
 
-For day-to-day distribution use `./bundle-artifact.sh`. `bun run build` alone is useful if
-you only need the `dist/` output (e.g. for further scripting).
+Navigate to `http://localhost:3737/#/<slug>?t=<FORM_TOKEN_SLUG>`.
 
-Open `forms.html` in any browser — no server needed.
+### Production
+
+```bash
+bun run build        # compiles TypeScript + bundles SPA → dist/
+bun start            # serves dist/ + /api/* on PORT (default 3000)
+```
+
+Or with Docker:
+
+```bash
+docker compose up    # builds the image and starts the server
+```
 
 ---
 
@@ -77,20 +84,28 @@ Open `forms.html` in any browser — no server needed.
 ├── forms/                  # one *.form.ts per form (auto-discovered, recursively)
 │   └── examples/           # runnable example forms (contact, feedback, event-rsvp)
 ├── src/
+│   ├── server/             # Hono BFF server
+│   │   ├── index.ts        # entry point — serves dist/ + /api/*
+│   │   ├── config.ts       # env loading (WEBHOOK_*, FORM_TOKEN_*, PORT)
+│   │   ├── auth.ts         # constant-time token validation
+│   │   ├── db.ts           # bun:sqlite session store
+│   │   ├── n8n.ts          # n8n proxy helper (sync + 202/SSE)
+│   │   ├── events.ts       # in-process SSE subscriber registry
+│   │   └── routes/         # forms.ts, sessions.ts, callback.ts
 │   ├── components/
-│   │   ├── FormShell.tsx   # main template (RHF + zod + submit + response)
+│   │   ├── FormShell.tsx   # wizard: multi-page RHF + zod + SSE + response
 │   │   ├── fields/         # field components + FIELD_REGISTRY
 │   │   ├── tiptap-*/       # vendored TipTap simple editor (rich-text field)
 │   │   └── ui/             # shadcn/ui primitives
 │   ├── lib/
-│   │   ├── schema.ts       # FieldDef, FormSchema, defineForm(), buildZodSchema()
-│   │   └── submit.ts       # postToWebhook() via ky (no retry — avoids double-triggers)
+│   │   ├── schema.ts       # PageDef, FormSchema, defineForm(), buildZodSchema()
+│   │   └── submit.ts       # startForm() / stepForm() / openEventStream() via BFF
 │   └── index.css           # "industrial control panel" dark theme (charcoal/amber)
-├── .env.example            # webhook URL template — copy to .env and fill in
-├── bundle-artifact.sh      # build → patch → inline → forms.html
-└── forms.html              # ⚠ build artifact, gitignored
-docs/
-└── tiptap-simple-template.md
+├── Dockerfile              # multi-stage oven/bun build + runtime
+├── docker-compose.yml      # one service, env_file: .env, restart: unless-stopped
+├── .env.example            # WEBHOOK_*, FORM_TOKEN_*, PORT template
+└── docs/
+    └── n8n-contract.md     # n8n workflow contract for integrators
 ```
 
 ---
@@ -99,7 +114,7 @@ docs/
 
 The app auto-discovers every `*.form.ts` under the `forms/` directory (including
 subfolders like `forms/examples/`) via `import.meta.glob` — no manual registration
-is needed. Just create the file, add the env key, and restart `bun dev`.
+is needed. Just create the file, add the env keys, and restart the dev server.
 
 1. **Create** `forms/<slug>.form.ts`:
 
@@ -109,43 +124,57 @@ is needed. Just create the file, add the env key, and restart `bun dev`.
    export default defineForm({
      slug: "my-form",
      title: "My Form",
-     webhook: import.meta.env.VITE_WEBHOOK_MY_FORM,
      submitLabel: "Send",
-     successMessage: "Done!",
-     fields: [
-       { type: "text",  name: "name",    label: "Your name", required: true },
-       { type: "email", name: "email",   label: "Email",     required: true },
-       { type: "textarea", name: "body", label: "Message" },
+     response: { header: { message: "Done!" } }, // success line (optional)
+     pages: [
+       {
+         fields: [
+           { type: "text",     name: "name",  label: "Your name", required: true },
+           { type: "email",    name: "email", label: "Email",     required: true },
+           { type: "textarea", name: "body",  label: "Message" },
+         ],
+       },
      ],
    });
    ```
 
-2. **Add the env key** to `.env` and `.env.example`:
+2. **Add the env keys** to `.env` and `.env.example`:
 
    ```
-   VITE_WEBHOOK_MY_FORM=https://YOUR-N8N-HOST/webhook/my-form
+   WEBHOOK_MY_FORM=https://YOUR-N8N-HOST/webhook/my-form
+   FORM_TOKEN_MY_FORM=change-me
    ```
 
-The full form schema is the source of truth in [`src/lib/schema.ts`](src/lib/schema.ts)
-(`FieldDef`, `FormSchema`, `ResponseConfig`). See [`forms/ping.form.ts`](forms/ping.form.ts)
-for a minimal working example, or [`forms/examples/`](forms/examples) for fuller forms
-that exercise selects, ratings, dates, and the rich-text field.
+The full form schema is the source of truth in [`src/lib/schema.ts`](src/lib/schema.ts).
+See [`forms/ping.form.ts`](forms/ping.form.ts) for a minimal working example,
+[`forms/wizard-demo.form.ts`](forms/wizard-demo.form.ts) for multi-page + dynamic fields,
+or [`forms/examples/`](forms/examples) for fuller single-page forms.
 
-### Rendering the webhook response
+### Rendering the workflow response
 
-Add a `response` key to display fields from the n8n workflow's JSON reply:
+Add a `response` key to display fields from n8n's JSON reply in the success panel:
 
 ```ts
 response: {
-  title: "Result",
+  header: { title: "Result" },          // accent title above the fields
   fields: [
-    { key: "0.executionId" },              // n8n default echo wraps reply in an array
-    { key: "0.data.status", label: "Status" },
+    { key: "title", format: "heading" },              // large amber title
+    { key: "summary", prose: true },                  // long text → readable sans
+    { key: "role", label: "Role", section: "Details" }, // groups into a panel
+    { key: "tech_stack", format: "tags" },            // array → Badge chips
+    { key: "key_requirements", format: "list" },      // array → checklist
   ],
 },
 ```
 
-Keys are dot-paths resolved via `es-toolkit/compat` `get`. n8n's default echo shape is `[{ ...body }]`, so prefix paths with `0.`.
+Keys are dot-paths resolved via `es-toolkit/compat` `get`. The reply may be a bare object
+`{...}` or array-wrapped `[{...}]` — both are handled. A legacy `0.` prefix is still tolerated.
+
+The success header is configured via `response.header` (`style`: `compact` (default) / `full` /
+`none`; `heading`, `message`, `title`). The success line lives at `response.header.message`
+(there is no top-level `successMessage`). Per-field: `format` is `heading` / `tags` / `list`,
+`prose: true` renders sans body text, `section` groups fields into a bordered panel, and
+`hideIfEmpty` omits empty rows. Full reference: [`forms/CLAUDE.md`](forms/CLAUDE.md).
 
 ---
 
@@ -177,39 +206,18 @@ Use the new `type` string in any `*.form.ts`.
 
 ## n8n CORS requirement
 
-When `forms.html` is opened via `file://`, the browser sends `Origin: null`. Every n8n Webhook node must have:
-
-> **Allowed Origins → `*`**
-
-A missing or wrong CORS header shows up as a network error (status 0) in the form's error state.
-
-### CORS & security implications
-
-Setting `Allowed Origins: *` is a required trade-off for the `file://` design, but it means
-**any website can POST arbitrary JSON to your webhook** — not just your form. Potential risks:
-
-- Spam and garbage submissions from malicious sites
-- Cost escalation if your n8n instance charges per execution
-- Data poisoning if the workflow writes submissions to a database without validation
-
-**Mitigations — implement these in your n8n workflow:**
-
-1. **Keep webhook URLs secret** — treat them like API keys; never publish or share them
-2. **Validate the request payload** — check required fields, expected shapes, and domain-specific constraints at the start of every workflow
-3. **Rate-limit by IP or session** — add a rate-limit node before any expensive operations
-4. **Monitor for abuse** — log all submissions and alert on sudden spikes or repeated failures
-5. **IP whitelisting** (if feasible) — if forms are used only on known networks, restrict access at the firewall or n8n level
-
-The n8n webhook itself cannot enforce origin-specific CORS because of the `file://` null-origin
-constraint. All security enforcement must happen inside the workflow.
+The BFF calls n8n server-to-server — CORS only matters for direct-browser access to n8n,
+which this app does not do. You can (and should) restrict n8n's `Allowed Origins` to the
+BFF's host in production rather than `*`.
 
 ### Idempotency and POST retry
 
-The form client intentionally does not retry failed POST requests (see `src/lib/submit.ts`).
-This avoids double-triggering workflows when a submission is ambiguous (e.g., a timeout where
-the server may have already processed the request). If your workflow must be idempotent
-(e.g., it inserts a unique record), implement server-side deduplication in n8n — for example,
-by storing a client-generated submission ID and checking it before processing.
+The BFF intentionally does not retry failed n8n calls (see `src/server/n8n.ts`).
+This avoids double-triggering workflows when a submission is ambiguous. If your workflow
+must be idempotent (e.g., it inserts a unique record), implement server-side deduplication
+in n8n — for example, by storing the `sessionId` and checking it before processing.
+
+See [`docs/n8n-contract.md`](docs/n8n-contract.md) for the full workflow integration guide.
 
 ---
 
@@ -217,19 +225,23 @@ by storing a client-generated submission ID and checking it before processing.
 
 | Command | Description |
 |---|---|
-| `bun dev` | Dev server at `http://localhost:5173` |
-| `bun run build` | Vite build → `dist/` |
+| `bun dev` | Single dev server: BFF + Vite middleware at `http://localhost:3737` (HMR included) |
+| `bun run dev:vite` | Vite standalone at `http://localhost:5173` (SPA only, no BFF) |
+| `bun run build` | `tsc -b && vite build` → `dist/` |
+| `bun start` | Serve `dist/` + `/api/*` via BFF (production) |
 | `bun run lint` | ESLint |
-| `./bundle-artifact.sh` | Full pipeline: build → patch → inline → `forms.html` |
+| `docker compose up` | Build image + start BFF in Docker |
 
 ---
 
 ## Tech stack
 
-- **React 19** + **TypeScript** + **Vite**
-- **React Hook Form** + **Zod** — form state and validation
+- **Hono** on **Bun** — BFF server (static serving, `/api/*` routes, SSE)
+- **bun:sqlite** — session store (resumeUrl, last callback payload, TTL GC)
+- **React 19** + **TypeScript** + **Vite** — SPA
+- **React Hook Form** + **Zod** — per-page form state and validation
 - **shadcn/ui** + **Tailwind CSS** — UI primitives
 - **TipTap** (vendored simple editor) — rich-text field
-- **ky** — HTTP client for webhook POSTs
-- **es-toolkit** — `debounce` (TipTap field) + `get` (response dot-path resolution)
-- **Bun** — package manager and runtime
+- **ky** — HTTP client for BFF → n8n proxy calls
+- **es-toolkit** — `debounce` (TipTap field) + `get` (dot-path resolution)
+- **Bun** — package manager, runtime, and test runner

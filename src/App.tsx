@@ -8,14 +8,25 @@ import { forms, getForm } from "@/forms/index";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
-function useHashSlug(): string {
-  const [slug, setSlug] = useState(() =>
-    window.location.hash.replace(/^#\/?/, ""),
-  );
+/**
+ * Returns the slug portion of the URL hash (the part after `#/`).
+ *
+ * Examples:
+ *   #/contact  → "contact"
+ *   #/ping     → "ping"
+ *   #/         → ""
+ */
+function parseHash(): string {
+  const hash = window.location.hash.replace(/^#\/?/, ""); // strip leading "#/"
+  const qIdx = hash.indexOf("?");
+  return qIdx === -1 ? hash : hash.slice(0, qIdx);
+}
+
+function useHashRoute(): string {
+  const [slug, setSlug] = useState(parseHash);
 
   useEffect(() => {
-    const onHashChange = () =>
-      setSlug(window.location.hash.replace(/^#\/?/, ""));
+    const onHashChange = () => setSlug(parseHash());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
@@ -25,17 +36,17 @@ function useHashSlug(): string {
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function webhookHost(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
+/** Total field count across all pages (for the console card). */
+function totalFieldCount(form: FormSchema): number {
+  return form.pages.reduce((sum, p) => sum + p.fields.length, 0);
 }
 
 // ── console index ──────────────────────────────────────────────────────────────
 
 function FormCard({ form, index }: { form: FormSchema; index: number }) {
+  const fieldCount = totalFieldCount(form);
+  const pageCount = form.pages.length;
+
   return (
     <a
       href={"#/" + form.slug}
@@ -76,12 +87,16 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
 
         <div className="label-tech flex items-center gap-3 flex-wrap">
           <span>
-            {form.fields.length} field{form.fields.length !== 1 ? "s" : ""}
+            {fieldCount} field{fieldCount !== 1 ? "s" : ""}
           </span>
-          <span className="text-border select-none">·</span>
-          <span className="truncate max-w-[240px]">
-            {webhookHost(form.webhook)}
-          </span>
+          {pageCount > 1 && (
+            <>
+              <span className="text-border select-none">·</span>
+              <span>
+                {pageCount} steps
+              </span>
+            </>
+          )}
         </div>
       </Card>
     </a>
@@ -140,7 +155,7 @@ function UnknownForm({ slug }: { slug: string }) {
 // ── app root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const slug = useHashSlug();
+  const slug = useHashRoute();
   const form = slug ? getForm(slug) : undefined;
 
   return (
@@ -150,7 +165,10 @@ export default function App() {
         {slug === "" ? (
           <ConsoleIndex />
         ) : form ? (
-          <FormShell schema={form} />
+          // key by slug so navigating between forms remounts FormShell with
+          // fresh wizard state (phase/session/answers) instead of leaking the
+          // previous form's "done" state.
+          <FormShell key={form.slug} schema={form} />
         ) : (
           <UnknownForm slug={slug} />
         )}

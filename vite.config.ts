@@ -3,16 +3,16 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  // "./" base is required for file:// serving — all asset paths become relative
-  base: "./",
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    // Inline assets ≤ 100 KiB so the final html-inline pass has fewer external refs
-    assetsInlineLimit: 100 * 1024,
+  server: {
+    // Single-server dev (bun dev): Vite runs in middleware mode inside the Hono
+    // BFF (src/server/dev.ts). No proxy needed — /api/* and SPA both served
+    // from the same port. If you run `bun run dev:vite` for SPA-only work,
+    // re-add a proxy here pointing at your BFF port.
   },
 });
