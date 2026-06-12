@@ -1,16 +1,20 @@
-<!-- ADR template — copy to docs/adr/NNNN-kebab-title.md, fill frontmatter + sections, then run generate.py -->
+<!-- markdownlint-disable-file MD041 -->
+<!-- ADR template — copy to docs/adr/NNNN-kebab-title.md, fill frontmatter +
+sections, then run generate.py -->
 ---
 id: "0000"
 title: "Short imperative title — e.g. Use X over Y for Z"
 status: proposed
 date: "2026-01-01"
 applies-to:
-  - "src/**/*.ts"
+
+- "src/**/*.ts"
 global: false
 tags:
-  - example
+- example
 supersedes: null
 superseded-by: null
+
 ---
 
 ## Context

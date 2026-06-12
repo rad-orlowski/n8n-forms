@@ -1,0 +1,23 @@
+# Globs used when running `bun markdownlint-cli2` with no arguments.
+# The !-prefixed patterns are negations (exclude).
+globs:
+  - "**/*.md"
+  # Claude Code project-level config — not committed, not our docs to lint.
+  - "!.claude/**"
+  # npm / bun package registry — third-party READMEs and CHANGELOGs.
+  - "!node_modules/**"
+  # Compiled output — never lint generated artefacts.
+  - "!dist/**"
+  # CLAUDE.md is a gitignored developer-facing prompt file, not public docs.
+  - "!CLAUDE.md"
+  - "!**/CLAUDE.md"
+
+config:
+  default: true
+  MD013:
+    # Table cells routinely contain long URLs and structured content that
+    # cannot be line-wrapped without breaking the table syntax.
+    tables: false
+    # Code inside fenced blocks should not be reflowed — it must stay
+    # executable/copy-pasteable exactly as written.
+    code_blocks: false

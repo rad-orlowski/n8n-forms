@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/server/dev.ts",
+    "forms/*.form.ts",
+    "src/components/ui/**/*.tsx"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "forms/**/*.ts"],
+  "ignore": [
+    "src/components/tiptap-*/**",
+    "src/hooks/**",
+    "src/lib/tiptap-utils.ts",
+    "src/scss.d.ts"
+  ],
+  "ignoreExportsUsedInFile": true
+}
