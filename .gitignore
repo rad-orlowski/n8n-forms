@@ -17,6 +17,11 @@ dist-ssr
 .env.*.local
 !.env.example
 
+# BFF session store (bun:sqlite) — runtime state, never committed
+sessions.db
+sessions.db-shm
+sessions.db-wal
+
 # Build output — inlined webhook URLs must not be committed
 bundle.html
 forms.html
