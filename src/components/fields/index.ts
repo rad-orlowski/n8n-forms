@@ -9,6 +9,7 @@ import { CheckboxField } from "./checkbox-field";
 import { DateField } from "./date-field";
 import { RatingField } from "./rating-field";
 import { RichTextField } from "./rich-text-field";
+import { UrlField } from "./url-field";
 
 /**
  * The field registry. Map a field `type` string to the component that renders it.
@@ -18,6 +19,7 @@ import { RichTextField } from "./rich-text-field";
 export const FIELD_REGISTRY: Record<string, FieldComponent> = {
   text: TextField,
   email: EmailField,
+  url: UrlField,
   textarea: TextareaField,
   number: NumberField,
   select: SelectField,

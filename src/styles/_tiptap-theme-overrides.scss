@@ -147,7 +147,7 @@
   --tt-button-disabled-bg-color: transparent;
 
   /* Text colors */
-  --tt-button-default-text-color: hsl(var(--muted-foreground));
+  --tt-button-default-text-color: hsl(var(--foreground) / 0.85);
   --tt-button-hover-text-color: hsl(var(--foreground));
   --tt-button-active-text-color: hsl(var(--foreground));
   --tt-button-active-text-color-emphasized: hsl(var(--primary-foreground));
@@ -155,7 +155,7 @@
   --tt-button-disabled-text-color: hsl(var(--muted-foreground) / 0.5);
 
   /* Icon colors */
-  --tt-button-default-icon-color: hsl(var(--muted-foreground));
+  --tt-button-default-icon-color: hsl(var(--foreground) / 0.85);
   --tt-button-hover-icon-color: hsl(var(--foreground));
   --tt-button-active-icon-color: hsl(var(--primary));
   --tt-button-active-icon-color-emphasized: hsl(var(--primary-foreground));
@@ -190,14 +190,14 @@
     --tt-button-active-hover-bg-color-subdued: hsl(var(--muted));
     --tt-button-disabled-bg-color: transparent;
 
-    --tt-button-default-text-color: hsl(var(--muted-foreground));
+    --tt-button-default-text-color: hsl(var(--foreground) / 0.85);
     --tt-button-hover-text-color: hsl(var(--foreground));
     --tt-button-active-text-color: hsl(var(--foreground));
     --tt-button-active-text-color-emphasized: hsl(var(--primary-foreground));
     --tt-button-active-text-color-subdued: hsl(var(--foreground));
     --tt-button-disabled-text-color: hsl(var(--muted-foreground) / 0.5);
 
-    --tt-button-default-icon-color: hsl(var(--muted-foreground));
+    --tt-button-default-icon-color: hsl(var(--foreground) / 0.85);
     --tt-button-hover-icon-color: hsl(var(--foreground));
     --tt-button-active-icon-color: hsl(var(--primary));
     --tt-button-active-icon-color-emphasized: hsl(var(--primary-foreground));
@@ -327,24 +327,33 @@
        that even if a browser doesn't inherit :root vars into portals, the
        colours stay correct.
    ────────────────────────────────────────────────────────────────────────────*/
-.tiptap-dropdown-menu-content,
-.tiptap-dropdown-menu-sub-content {
+/*
+ * NOTE: the `.dark` prefix is load-bearing, not cosmetic. The vendored
+ * component SCSS sets these surfaces to `var(--white)` at `:root` (and the
+ * app remaps `--white` to the light `--foreground`). In the production CSS
+ * bundle that `:root` rule can out-order our overrides, turning popovers
+ * cream. `.dark .x` raises specificity to (0,2,0) so it always wins over the
+ * single-class `.x { background: var(--white) }` regardless of bundle order.
+ * The app is always in dark mode, so `.dark` is guaranteed present.
+ */
+.dark .tiptap-dropdown-menu-content,
+.dark .tiptap-dropdown-menu-sub-content {
   background-color: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
   border: 1px solid hsl(var(--border));
 }
 
-.tiptap-popover {
+.dark .tiptap-popover {
   background-color: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
 }
 
-.tiptap-card {
+.dark .tiptap-card {
   background-color: hsl(var(--popover));
   border-color: hsl(var(--border));
 }
 
-.tiptap-tooltip {
+.dark .tiptap-tooltip {
   background-color: hsl(var(--card));
   color: hsl(var(--card-foreground));
 }

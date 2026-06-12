@@ -1,15 +1,15 @@
 # Logs
-**/logs
-**/*.log
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-**/node_modules
-**/dist
-**/dist-ssr
+node_modules
+dist
+dist-ssr
 *.local
 
 # Env — real secrets stay local, only the example is committed
@@ -34,6 +34,10 @@ forms.html
 
 # AI Coding
 CLAUDE.md
-**/AGENTS.ms
-**/.claude/
+AGENTS.md
+.claude/
 skills-lock.json
+
+# User forms
+/forms/
+!/forms/ping.form.ts

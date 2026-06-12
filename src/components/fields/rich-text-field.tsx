@@ -16,7 +16,6 @@ import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 
 // --- UI Primitives ---
-import { Spacer } from "@/components/tiptap-ui-primitive/spacer"
 import {
   Toolbar,
   ToolbarGroup,
@@ -84,8 +83,6 @@ const MainToolbarContent = ({
   isMobile: boolean
 }) => (
   <>
-    <Spacer />
-
     <ToolbarGroup>
       <UndoRedoButton action="undo" />
       <UndoRedoButton action="redo" />
@@ -134,8 +131,6 @@ const MainToolbarContent = ({
       <TextAlignButton align="right" />
       <TextAlignButton align="justify" />
     </ToolbarGroup>
-
-    <Spacer />
   </>
 )
 
@@ -206,6 +201,7 @@ export function RichTextField({ field, def }: FieldComponentProps) {
         autocomplete: "off",
         autocorrect: "off",
         autocapitalize: "off",
+        spellcheck: "false",
         "aria-label": def.label
           ? `${def.label} rich text editor`
           : "Rich text editor",

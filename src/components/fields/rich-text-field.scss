@@ -59,6 +59,7 @@
     flex: 1;
     min-height: 180px;
     padding: 0.75rem 1rem;
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-size: 0.9rem;
     line-height: 1.6;
@@ -85,7 +86,8 @@
     /* Inline code */
     code:not(pre code) {
       background-color: hsl(var(--muted));
-      color: hsl(var(--accent-foreground));
+      color: hsl(var(--primary));
+      border: 1px solid hsl(var(--border));
       border-radius: 0.2em;
       padding: 0.1em 0.35em;
       font-size: 0.85em;
@@ -93,12 +95,28 @@
 
     /* Code block */
     pre {
-      background-color: hsl(var(--muted));
+      background-color: hsl(var(--card));
+      color: hsl(var(--foreground));
+      border: 1px solid hsl(var(--border));
       border-radius: var(--radius);
       padding: 0.75rem 1rem;
       overflow-x: auto;
 
-      code { background: none; padding: 0; font-size: 0.85em; }
+      code {
+        background: none;
+        border: none;
+        color: inherit;
+        padding: 0;
+        font-size: 0.85em;
+      }
+    }
+
+    /* Highlight marks render a light pastel bg via inline style — force dark
+       text so the highlighted content stays legible against it. */
+    mark {
+      color: hsl(var(--background));
+      border-radius: 0.2em;
+      padding: 0.05em 0.15em;
     }
 
     /* Blockquote */

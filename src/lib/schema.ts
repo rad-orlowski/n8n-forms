@@ -21,6 +21,7 @@ export interface FieldDef {
   type:
     | "text"
     | "email"
+    | "url"
     | "textarea"
     | "number"
     | "select"
@@ -113,6 +114,13 @@ export function buildZodSchema(fields: FieldDef[]) {
           : z.union([z.literal(""), base]).optional();
         break;
       }
+      case "url": {
+        const base = z.string().url("Enter a valid URL");
+        s = f.required
+          ? base.min(1, "This field is required")
+          : z.union([z.literal(""), base]).optional();
+        break;
+      }
       case "number":
       case "rating": {
         let num = z.coerce.number({ error: "Enter a number" });
@@ -125,6 +133,20 @@ export function buildZodSchema(fields: FieldDef[]) {
         s = f.required
           ? z.boolean().refine((v) => v === true, "This must be checked")
           : z.boolean().optional();
+        break;
+      }
+      case "richtext": {
+        // TipTap emits markup even when "empty" (e.g. "<p></p>"), so a plain
+        // min(1) would pass. Strip tags + entities to test for real content.
+        const hasContent = (html: string) =>
+          html
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;|&#160;/g, " ")
+            .trim().length > 0 || /<(img|iframe|video|audio)\b/i.test(html);
+        const base = z.string();
+        s = f.required
+          ? base.refine(hasContent, "This field is required")
+          : base.optional();
         break;
       }
       default: {
