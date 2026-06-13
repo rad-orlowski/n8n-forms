@@ -17,6 +17,7 @@
 
 import ky, { HTTPError } from "ky";
 import { readFileSync } from "fs";
+import { get } from "es-toolkit/compat";
 
 // ---------------------------------------------------------------------------
 // Optional custom CA (for local dev with self-signed / mkcert certs).
@@ -84,7 +85,10 @@ export interface N8nWorkflowErrorResult {
   message: string;
 }
 
-export type N8nResult = N8nSyncResult | N8nPendingResult | N8nWorkflowErrorResult;
+export type N8nResult =
+  | N8nSyncResult
+  | N8nPendingResult
+  | N8nWorkflowErrorResult;
 
 /** Typed error thrown when n8n returns a non-2xx response. */
 export class N8nCallError extends Error {
@@ -111,20 +115,63 @@ export class N8nNetworkError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
- * POST `targetUrl` with the given payload.
+ * Coerce a client-supplied `timeoutMs` body value into a ky timeout override.
+ *   - `"indefinite"`        → `false` (no timeout)
+ *   - a positive finite num → that many ms
+ *   - anything else / absent → `undefined` (fall back to the module default)
+ * The value is untrusted client input, so it is validated, not trusted.
+ */
+export function parseTimeout(raw: unknown): number | false | undefined {
+  if (raw === "indefinite") return false;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  return undefined;
+}
+
+/** Per-call options for {@link postToN8n}. */
+export interface PostToN8nOptions {
+  /** Dot-path into the n8n reply where the resumeUrl lives; falls back to top-level `resumeUrl`. */
+  resumeUrlPath?: string;
+  /**
+   * HTTP method used to call n8n. Defaults to "POST" (the standard contract,
+   * carrying the answers/sessionId/callbackUrl body). Use "GET" for trigger
+   * webhooks that take no input (e.g. a page-0 "load" step) — the payload is
+   * not sent in that case.
+   */
+  method?: "GET" | "POST";
+  /**
+   * Per-call timeout (ms) overriding the module default. `false` disables the
+   * timeout entirely (wait indefinitely for n8n). Origin: the form/page
+   * `timeoutMs` resolved client-side and forwarded in the request body.
+   */
+  timeout?: number | false;
+}
+
+/**
+ * Call `targetUrl` with the given payload.
  * `targetUrl` is either:
  *   - the initial webhook URL (resolved from WEBHOOK_<SLUG> env var)
  *   - a subsequent resumeUrl (n8n Wait-node endpoint)
+ *
+ * Defaults to POST; pass `method: "GET"` for input-less trigger webhooks
+ * (the body is omitted for GET).
  *
  * Throws N8nCallError or N8nNetworkError on failure.
  */
 export async function postToN8n(
   targetUrl: string,
-  payload: N8nPayload
+  payload: N8nPayload,
+  options: PostToN8nOptions = {},
 ): Promise<N8nResult> {
+  const { resumeUrlPath, method = "POST", timeout } = options;
+  // Only spread `timeout` when explicitly set — passing `undefined` would
+  // override the n8nKy.create() default rather than fall back to it.
+  const timeoutOpt = timeout !== undefined ? { timeout } : {};
   let response: Response;
   try {
-    response = await n8nKy.post(targetUrl, { json: payload });
+    response =
+      method === "GET"
+        ? await n8nKy.get(targetUrl, timeoutOpt)
+        : await n8nKy.post(targetUrl, { json: payload, ...timeoutOpt });
   } catch (err) {
     if (err instanceof HTTPError) {
       const status = err.response.status;
@@ -147,7 +194,10 @@ export async function postToN8n(
     return { pending: false, data: null, resumeUrl: null, done: true };
   }
 
-  const obj = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const obj =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
   // Support both bare object { ... } and array-wrapped [{ ... }] response shapes
   const payload0 =
     Array.isArray(body) && body.length > 0 && typeof body[0] === "object"
@@ -169,7 +219,7 @@ export async function postToN8n(
   // response panels can reference any top-level n8n field directly.
   const INTERNAL_KEYS = new Set(["resumeUrl", "done", "data"]);
   const rest = Object.fromEntries(
-    Object.entries(payload0).filter(([k]) => !INTERNAL_KEYS.has(k))
+    Object.entries(payload0).filter(([k]) => !INTERNAL_KEYS.has(k)),
   );
   const data: unknown =
     "data" in payload0
@@ -178,10 +228,16 @@ export async function postToN8n(
         ? rest
         : null;
 
+  // Resolve resumeUrl: use dot-path when provided, otherwise fall back to
+  // the top-level `resumeUrl` field (standard contract).
+  const resolvedResume =
+    resumeUrlPath != null ? get(payload0, resumeUrlPath) : payload0.resumeUrl;
+  const resumeUrl = typeof resolvedResume === "string" ? resolvedResume : null;
+
   return {
     pending: false,
     data,
-    resumeUrl: typeof payload0.resumeUrl === "string" ? payload0.resumeUrl : null,
-    done: Boolean(payload0.done ?? !payload0.resumeUrl),
+    resumeUrl,
+    done: Boolean(payload0.done ?? !resumeUrl),
   };
 }

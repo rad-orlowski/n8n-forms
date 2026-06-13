@@ -26,19 +26,17 @@ import {
 } from "@/components/ui/form";
 import { FIELD_REGISTRY, STATIC_FIELD_REGISTRY } from "@/components/fields";
 import { StepDataContext } from "@/components/StepDataContext";
+import { SelectedItemsContext } from "@/components/SelectedItemsContext";
 import {
   buildZodSchema,
   defaultValues,
   isStaticField,
+  resolveTimeoutMs,
   type FieldDef,
   type FormSchema,
   type ResponseConfig,
 } from "@/lib/schema";
-import {
-  openEventStream,
-  startForm,
-  stepForm,
-} from "@/lib/submit";
+import { openEventStream, startForm, stepForm } from "@/lib/submit";
 
 // ── response panel defaults ────────────────────────────────────────────────────
 
@@ -49,24 +47,30 @@ const DEFAULT_TITLE = "Response";
 // ── wizard state ─────────────────────────────────────────────────────────────
 
 type WizardPhase =
-  | { kind: "form" }           // filling out the active page
-  | { kind: "pending" }        // waiting for SSE callback
+  | { kind: "form" } // filling out the active page
+  | { kind: "pending" } // waiting for SSE callback
   | { kind: "error"; message: string; status: number }
   | { kind: "done"; data: unknown };
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export function FormShell({
-  schema,
-}: {
-  schema: FormSchema;
-}) {
+export function FormShell({ schema }: { schema: FormSchema }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   // stepData is the `data` payload from the BFF for the *current* page.
   // It starts null (page 0 has no n8n data yet), then is set after each step.
   const [stepData, setStepData] = useState<unknown>(null);
   const [phase, setPhase] = useState<WizardPhase>({ kind: "form" });
+  // selectedItems holds the full raw n8n object for each select field on the
+  // active page; used by sibling fields that declare valueFromField.
+  const [selectedItems, setSelectedItems] = useState<Record<string, unknown>>(
+    {},
+  );
+  const setItem = useCallback(
+    (name: string, raw: unknown) =>
+      setSelectedItems((p) => ({ ...p, [name]: raw })),
+    [],
+  );
 
   const page = schema.pages[currentPage];
 
@@ -99,9 +103,13 @@ export function FormShell({
     mode: "onTouched",
   });
 
-  // Reset the RHF instance whenever the page advances.
+  // Reset the RHF instance and selected-item context whenever the page advances.
   useEffect(() => {
     form.reset(resolvedDefaults);
+    // Intentional: clear selected raw items when navigating to a new page so a
+    // prior page's selection can't leak into a sibling field's valueFromField.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedItems({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
@@ -109,58 +117,55 @@ export function FormShell({
 
   // ── SSE handling ────────────────────────────────────────────────────────────
 
-  const handleSse = useCallback(
-    (sid: string) => {
-      setPhase({ kind: "pending" });
-      const es = openEventStream(sid);
+  const handleSse = useCallback((sid: string) => {
+    setPhase({ kind: "pending" });
+    const es = openEventStream(sid);
 
-      es.addEventListener("step", (e: MessageEvent) => {
-        try {
-          const payload = JSON.parse(e.data as string) as {
-            data: unknown;
-            done: boolean;
-            workflowError?: boolean;
-            errorMessage?: string;
-          };
-          es.close();
-          // Workflow-level business error: n8n signalled __error: true.
-          if (payload.workflowError) {
-            setPhase({
-              kind: "error",
-              message: payload.errorMessage ?? "The workflow reported an error.",
-              status: 0,
-            });
-            return;
-          }
-          if (payload.done) {
-            setStepData(payload.data);
-            setPhase({ kind: "done", data: payload.data });
-          } else {
-            setStepData(payload.data);
-            setCurrentPage((p) => p + 1);
-            setPhase({ kind: "form" });
-          }
-        } catch {
-          es.close();
+    es.addEventListener("step", (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data as string) as {
+          data: unknown;
+          done: boolean;
+          workflowError?: boolean;
+          errorMessage?: string;
+        };
+        es.close();
+        // Workflow-level business error: n8n signalled __error: true.
+        if (payload.workflowError) {
           setPhase({
             kind: "error",
-            message: "Received malformed data from the server.",
+            message: payload.errorMessage ?? "The workflow reported an error.",
             status: 0,
           });
+          return;
         }
-      });
-
-      es.onerror = () => {
+        if (payload.done) {
+          setStepData(payload.data);
+          setPhase({ kind: "done", data: payload.data });
+        } else {
+          setStepData(payload.data);
+          setCurrentPage((p) => p + 1);
+          setPhase({ kind: "form" });
+        }
+      } catch {
         es.close();
         setPhase({
           kind: "error",
-          message: "Lost connection to the server while waiting for a response.",
+          message: "Received malformed data from the server.",
           status: 0,
         });
-      };
-    },
-    [],
-  );
+      }
+    });
+
+    es.onerror = () => {
+      es.close();
+      setPhase({
+        kind: "error",
+        message: "Lost connection to the server while waiting for a response.",
+        status: 0,
+      });
+    };
+  }, []);
 
   // ── submit handler ──────────────────────────────────────────────────────────
 
@@ -169,7 +174,13 @@ export function FormShell({
 
     if (currentPage === 0) {
       // First page — kick off a new n8n execution
-      const res = await startForm(schema.slug, values);
+      const res = await startForm(
+        schema.slug,
+        values,
+        page.resumeUrlPath,
+        page.method,
+        resolveTimeoutMs(schema, page),
+      );
 
       if ("ok" in res) {
         // BffError
@@ -200,7 +211,13 @@ export function FormShell({
         return;
       }
 
-      const res = await stepForm(sessionId, values);
+      const res = await stepForm(
+        sessionId,
+        values,
+        page.resumeUrlPath,
+        page.method,
+        resolveTimeoutMs(schema, page),
+      );
 
       if ("ok" in res) {
         setPhase({ kind: "error", message: res.message, status: res.status });
@@ -281,10 +298,7 @@ export function FormShell({
           ) : null}
 
           {schema.response && phase.data !== undefined && (
-            <ResponsePanel
-              responseConfig={schema.response}
-              data={phase.data}
-            />
+            <ResponsePanel responseConfig={schema.response} data={phase.data} />
           )}
 
           <div className="text-center">
@@ -389,57 +403,64 @@ export function FormShell({
 
       {/* Provide step data to all field components so optionsFrom / valueFrom can resolve */}
       <StepDataContext.Provider value={stepData}>
-        <Form {...form}>
-          <form
-            ref={formRef}
-            // eslint-disable-next-line react-hooks/refs -- onInvalidSubmit reads formRef.current only when invoked as a submit handler, not during render
-            onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
-            className="mt-6 space-y-6"
-          >
-            {page.fields.map((def, i) => {
-              if (isStaticField(def)) {
-                const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
-                if (!StaticComponent) return null;
+        {/* Provide raw selected items so valueFromField can reactively prefill siblings */}
+        <SelectedItemsContext.Provider
+          value={{ items: selectedItems, setItem }}
+        >
+          <Form {...form}>
+            <form
+              ref={formRef}
+              // eslint-disable-next-line react-hooks/refs -- onInvalidSubmit reads formRef.current only when invoked as a submit handler, not during render
+              onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
+              className="mt-6 space-y-6"
+            >
+              {page.fields.map((def, i) => {
+                if (isStaticField(def)) {
+                  const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
+                  if (!StaticComponent) return null;
+                  return (
+                    <StaticComponent
+                      key={def.name ?? `__static_${i}`}
+                      def={def}
+                    />
+                  );
+                }
                 return (
-                  <StaticComponent
-                    key={def.name ?? `__static_${i}`}
-                    def={def}
+                  <FormField
+                    key={def.name ?? `__input_${i}`}
+                    control={form.control}
+                    name={def.name ?? `__input_${i}`}
+                    render={({ field }) => <FieldRow def={def} field={field} />}
                   />
                 );
-              }
-              return (
-                <FormField
-                  key={def.name ?? `__input_${i}`}
-                  control={form.control}
-                  name={def.name ?? `__input_${i}`}
-                  render={({ field }) => <FieldRow def={def} field={field} />}
-                />
-              );
-            })}
+              })}
 
-            <div className="flex items-center justify-between gap-4 pt-2">
-              {/* Start over is always available once a session exists */}
-              {sessionId ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="font-mono text-xs text-muted-foreground"
-                  onClick={startOver}
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Start over
+              <div className="flex items-center justify-between gap-4 pt-2">
+                {/* Start over is always available once a session exists */}
+                {sessionId ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="font-mono text-xs text-muted-foreground"
+                    onClick={startOver}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                    Start over
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <Button type="submit" className="min-w-36">
+                  <Send className="mr-2 h-4 w-4" />
+                  {page.submitLabel ??
+                    schema.submitLabel ??
+                    (currentPage < pageCount - 1 ? "Next" : "Submit")}
                 </Button>
-              ) : (
-                <span />
-              )}
-              <Button type="submit" className="min-w-36">
-                <Send className="mr-2 h-4 w-4" />
-                {schema.submitLabel ?? (currentPage < pageCount - 1 ? "Next" : "Submit")}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              </div>
+            </form>
+          </Form>
+        </SelectedItemsContext.Provider>
       </StepDataContext.Provider>
     </section>
   );
@@ -526,7 +547,8 @@ function BackLink() {
 function resolveResponseValue(data: unknown, key: string): unknown {
   const root = Array.isArray(data) && data.length === 1 ? data[0] : data;
   let v = get(root as object, key);
-  if (v === undefined && key.startsWith("0.")) v = get(root as object, key.slice(2));
+  if (v === undefined && key.startsWith("0."))
+    v = get(root as object, key.slice(2));
   if (v === undefined) v = get(data as object, key);
   return v;
 }
@@ -568,7 +590,10 @@ function normaliseValue(
   if (!s) return null;
   // Explicit tags/list format on a plain string → split by comma
   if (format === "tags" || format === "list") {
-    return s.split(",").map((t) => t.trim()).filter(Boolean);
+    return s
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
   }
   return s;
 }
@@ -699,8 +724,12 @@ function ResponseCell({ field }: { field: ResolvedField }) {
   const isHeading = !isEmpty && format === "heading";
   const isList = !isEmpty && format === "list";
   const isTags =
-    !isEmpty && !isHeading && !isList && (Array.isArray(value) || format === "tags");
-  const isProse = !isEmpty && !isHeading && !isTags && !isList && prose === true;
+    !isEmpty &&
+    !isHeading &&
+    !isList &&
+    (Array.isArray(value) || format === "tags");
+  const isProse =
+    !isEmpty && !isHeading && !isTags && !isList && prose === true;
 
   const fullWidth = isHeading || isTags || isList || prose === true;
 

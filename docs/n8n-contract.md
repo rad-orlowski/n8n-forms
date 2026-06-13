@@ -25,6 +25,40 @@ Page N submit → POST /api/sessions/:id/step
 
 ---
 
+## Browser → BFF request body
+
+The browser posts JSON to `/api/forms/:slug/start` and `/api/sessions/:id/step`:
+
+```json
+{
+  "answers": { "<fieldName>": "<value>", ... },
+  "resumeUrlPath": "webhookData.opportunities.0.callbackUrl",
+  "method": "GET",
+  "timeoutMs": 60000
+}
+```
+
+- `answers` — field values for the current page
+- `resumeUrlPath` *(optional)* — dot-path the BFF uses to extract the `resumeUrl`
+  from n8n's synchronous reply when the workflow does not return it at the top
+  level (e.g. the URL is nested inside `webhookData`).  Falls back to the
+  top-level `resumeUrl` field when absent.  The path is resolved server-side
+  via `es-toolkit/compat` `get()` and is never forwarded to n8n.
+- `method` *(optional, `"GET"` | `"POST"`, default `"POST"`)* — HTTP method the
+  BFF uses to call n8n for this page.  Use `"GET"` for an input-less trigger
+  webhook (e.g. a page-0 "load" step); the answers body is **not** sent to n8n
+  for a GET.  POST is the standard path and carries the
+  `answers`/`sessionId`/`callbackUrl` body.
+- `timeoutMs` *(optional, `number` ms | `"indefinite"`, default `30000`)* — how
+  long both the browser→BFF request and the BFF→n8n call wait for the
+  **synchronous** reply. Derived from the form's `PageDef.timeoutMs` /
+  `FormSchema.timeoutMs`. `"indefinite"` disables the timeout. The value is
+  untrusted input: the BFF accepts only `"indefinite"` or a positive finite
+  number, else it falls back to the 30s default. This bounds only the sync
+  path — when n8n replies `202` the result arrives over SSE, which is unbounded.
+
+---
+
 ## What the BFF sends to n8n
 
 Every call (start and step) sends a JSON body:

@@ -59,6 +59,25 @@ export interface FieldDef {
    * field's value. Only allowed on page index ≥ 1.
    */
   valueFrom?: string;
+  /**
+   * select — fields joined to form each option's label, e.g. ["role","company"]
+   * → "Senior Java Engineer @ Fiserv". Used with optionsFrom (page ≥ 1) and
+   * optionValue to map raw option objects returned by n8n.
+   */
+  optionLabel?: string[];
+  /**
+   * select — field on each raw option object used as the submitted value,
+   * e.g. "id". Pairs with optionLabel.
+   */
+  optionValue?: string;
+  /**
+   * Reactive prefill: "<sourceFieldName>.<dotPath>" — when the named select on
+   * the same page changes, set this field to get(selectedRawItem, dotPath).
+   * e.g. "opportunity.status" pre-fills the status select from the currently
+   * selected opportunity's status field. Not subject to the page-0 restriction
+   * (references a sibling field, not n8n step data — allowed on any page).
+   */
+  valueFromField?: string;
   /** number / rating bounds */
   min?: number;
   max?: number;
@@ -90,6 +109,35 @@ export interface PageDef {
    * is safe. Defaults to false (errors require restarting the session).
    */
   retryable?: boolean;
+  /**
+   * Dot-path into the n8n start/step response where the resumeUrl lives for
+   * the *next* step. Falls back server-side to `payload[0].resumeUrl` when
+   * omitted. Sent by the client in the POST body as `resumeUrlPath`.
+   */
+  resumeUrlPath?: string;
+  /**
+   * Per-page submit button label. Overrides FormSchema.submitLabel for this
+   * page only. Falls back to FormSchema.submitLabel, then "Next"/"Submit".
+   */
+  submitLabel?: string;
+  /**
+   * HTTP method the BFF uses to call n8n when this page is submitted. Defaults
+   * to "POST" (carries the answers body). Use "GET" for an input-less trigger
+   * webhook — e.g. a page-0 "load" step whose n8n webhook node is a GET trigger.
+   */
+  method?: "GET" | "POST";
+  /**
+   * How long the BFF (and the browser request to it) waits for n8n's
+   * synchronous reply on this page's submit, in milliseconds. Overrides
+   * `FormSchema.timeoutMs` for this page only. `"indefinite"` disables the
+   * timeout entirely (the request waits until n8n responds or the connection
+   * drops). Falls back to `FormSchema.timeoutMs`, then `DEFAULT_TIMEOUT_MS`.
+   *
+   * Only governs the synchronous request/response path. Async workflows
+   * (n8n replies 202 → SSE) are not bounded by this — `EventSource` has no
+   * timeout.
+   */
+  timeoutMs?: number | "indefinite";
   fields: FieldDef[];
 }
 
@@ -171,6 +219,13 @@ export interface FormSchema {
   pages: PageDef[];
   submitLabel?: string;
   /**
+   * Default synchronous-reply timeout (ms) for every page in this form.
+   * `"indefinite"` disables the timeout (wait until n8n responds). A page may
+   * override this via `PageDef.timeoutMs`. When unset, `DEFAULT_TIMEOUT_MS`
+   * applies. Only affects the synchronous path; async (202 → SSE) is unbounded.
+   */
+  timeoutMs?: number | "indefinite";
+  /**
    * Optional: configure the success panel — the success header (heading,
    * message, response title, layout) and which fields from the webhook JSON
    * response to render. Omitting this shows the default success header only.
@@ -190,17 +245,36 @@ export function defineForm(schema: FormSchema): FormSchema {
     if (field.optionsFrom != null) {
       throw new Error(
         `[${schema.slug}] field "${field.name ?? field.type}" uses optionsFrom on page 0 — ` +
-          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit)."
+          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit).",
       );
     }
     if (field.valueFrom != null) {
       throw new Error(
         `[${schema.slug}] field "${field.name ?? field.type}" uses valueFrom on page 0 — ` +
-          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit)."
+          "dynamic fields require page index ≥ 1 (no n8n data exists before the first submit).",
       );
     }
   }
   return schema;
+}
+
+/**
+ * Default synchronous-reply timeout (ms) when a form/page declares none.
+ * Matches the BFF's historical n8n timeout so existing forms are unaffected.
+ */
+export const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Resolve the effective synchronous-reply timeout for a page: page override →
+ * form default → `DEFAULT_TIMEOUT_MS`. Returns a millisecond number or the
+ * literal `"indefinite"`. Used by FormShell to drive the client request and
+ * forwarded to the BFF so both hops share one bound.
+ */
+export function resolveTimeoutMs(
+  schema: FormSchema,
+  page: PageDef,
+): number | "indefinite" {
+  return page.timeoutMs ?? schema.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 }
 
 /**
@@ -289,7 +363,9 @@ export function buildZodSchema(fields: FieldDef[]) {
       default: {
         // text, textarea, select, date and any custom string-valued field
         const base = z.string();
-        s = f.required ? base.min(1, "This field is required") : base.optional();
+        s = f.required
+          ? base.min(1, "This field is required")
+          : base.optional();
       }
     }
 

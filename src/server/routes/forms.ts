@@ -11,7 +11,7 @@
 import { Hono } from "hono";
 import { resolveFormConfig, PUBLIC_BASE_URL } from "../config.ts";
 import { createSession, updateSession } from "../db.ts";
-import { postToN8n } from "../n8n.ts";
+import { postToN8n, parseTimeout } from "../n8n.ts";
 
 const forms = new Hono();
 
@@ -23,11 +23,19 @@ forms.post("/:slug/start", async (c) => {
     return c.json({ error: "Form not configured" }, 404);
   }
 
-  // Parse request body for answers
+  // Parse request body for answers (and optional resumeUrlPath / method)
   let answers: unknown;
+  let resumeUrlPath: string | undefined;
+  let method: "GET" | "POST" = "POST";
+  let timeout: number | false | undefined;
   try {
     const body = await c.req.json();
-    answers = (body as Record<string, unknown>).answers ?? body;
+    const b = body as Record<string, unknown>;
+    answers = b.answers ?? body;
+    resumeUrlPath =
+      typeof b.resumeUrlPath === "string" ? b.resumeUrlPath : undefined;
+    if (b.method === "GET") method = "GET";
+    timeout = parseTimeout(b.timeoutMs);
   } catch {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
@@ -41,7 +49,11 @@ forms.post("/:slug/start", async (c) => {
   // POST to n8n webhook
   let result;
   try {
-    result = await postToN8n(cfg.webhookUrl, { answers, sessionId, callbackUrl });
+    result = await postToN8n(
+      cfg.webhookUrl,
+      { answers, sessionId, callbackUrl },
+      { resumeUrlPath, method, timeout },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return c.json({ error: `Failed to reach n8n: ${message}` }, 502);

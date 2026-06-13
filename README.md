@@ -139,6 +139,7 @@ is needed. Just create the file, add the env keys, and restart the dev server.
      slug: "my-form",
      title: "My Form",
      submitLabel: "Send",
+     timeoutMs: 30000,                           // sync-reply wait (ms); "indefinite" = no timeout; per-page override available
      response: { header: { message: "Done!" } }, // success line (optional)
      pages: [
        {
