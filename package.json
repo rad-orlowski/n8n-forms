@@ -11,8 +11,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "bun src/server/index.ts",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run && DB_PATH=:memory: bun test bun.test",
+    "test:coverage": "vitest run --coverage && DB_PATH=:memory: bun test bun.test --coverage",
+    "test:server": "DB_PATH=:memory: bun test bun.test",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -126,8 +127,9 @@
     "lint": "Run ESLint across all source files",
     "preview": "Preview the Vite production build locally",
     "start": "Serve `dist/` + `/api/*` via the Hono BFF (production)",
-    "test": "Run Vitest test suite once",
-    "test:coverage": "Run Vitest with V8 coverage report",
+    "test": "Run the full suite: Vitest (UI + pure lib) then `bun test` (Bun-runtime server files)",
+    "test:coverage": "Run both suites with coverage + thresholds (Vitest V8, then `bun test`)",
+    "test:server": "Run only the Bun-runtime server specs (`*.bun.test.ts`) via `bun test`",
     "test:watch": "Run Vitest in watch mode"
   }
 }

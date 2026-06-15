@@ -9,6 +9,7 @@ export default defineConfig([
   // Generated/vendored code — do not lint
   globalIgnores([
     'dist',
+    'coverage',
     'src/components/tiptap-*/**',
     'src/components/ui/**',
     'src/hooks/**',

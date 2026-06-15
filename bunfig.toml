@@ -1,0 +1,10 @@
+# Bun test runner config.
+#
+# The Bun-runtime server files (db.ts → bun:sqlite, routes/* → the Hono app)
+# cannot be imported under vitest's Node runtime, so they are covered here by
+# `bun test` instead. Specs are named `*.bun.test.ts`; run them with
+# `bun test bun.test` (see the `test` / `test:coverage` package scripts), which
+# filters to those files and skips the vitest suites that use `vi.*`.
+[test]
+coverageThreshold = 0.8
+coverageSkipTestFiles = true
