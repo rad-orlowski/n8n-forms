@@ -30,7 +30,11 @@ describe("getSession", () => {
   it("round-trips a created session", () => {
     const id = newId();
     createSession({ sessionId: id, formSlug: "rsvp" });
-    expect(getSession(id)).toMatchObject({ sessionId: id, formSlug: "rsvp", done: false });
+    expect(getSession(id)).toMatchObject({
+      sessionId: id,
+      formSlug: "rsvp",
+      done: false,
+    });
   });
 });
 
@@ -38,7 +42,11 @@ describe("updateSession", () => {
   it("persists resumeUrl, JSON lastPayload and the done flag", () => {
     const id = newId();
     createSession({ sessionId: id, formSlug: "wizard" });
-    updateSession(id, { resumeUrl: "http://n8n/resume", lastPayload: { step: 1 }, done: false });
+    updateSession(id, {
+      resumeUrl: "http://n8n/resume",
+      lastPayload: { step: 1 },
+      done: false,
+    });
     const after = getSession(id);
     expect(after).toMatchObject({
       resumeUrl: "http://n8n/resume",
@@ -50,7 +58,10 @@ describe("updateSession", () => {
   it("preserves unspecified fields on a partial patch", () => {
     const id = newId();
     createSession({ sessionId: id, formSlug: "wizard" });
-    updateSession(id, { resumeUrl: "http://n8n/a", lastPayload: { keep: true } });
+    updateSession(id, {
+      resumeUrl: "http://n8n/a",
+      lastPayload: { keep: true },
+    });
     updateSession(id, { done: true }); // only flips done
     expect(getSession(id)).toMatchObject({
       resumeUrl: "http://n8n/a",
@@ -75,6 +86,8 @@ describe("updateSession", () => {
   });
 
   it("throws for an unknown session", () => {
-    expect(() => updateSession("missing", { done: true })).toThrow(/Session not found/);
+    expect(() => updateSession("missing", { done: true })).toThrow(
+      /Session not found/,
+    );
   });
 });

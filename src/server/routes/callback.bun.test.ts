@@ -38,14 +38,22 @@ describe("callbackHandler", () => {
     let pushed: SseEvent | undefined;
     const off = subscribe(id, (e) => (pushed = e));
 
-    const res = await callback(id, { data: { ticket: "T-1" }, resumeUrl: "http://n8n/next", done: false });
+    const res = await callback(id, {
+      data: { ticket: "T-1" },
+      resumeUrl: "http://n8n/next",
+      done: false,
+    });
     expect(res.status).toBe(204);
     expect(getSession(id)).toMatchObject({
       resumeUrl: "http://n8n/next",
       lastPayload: { ticket: "T-1" },
       done: false,
     });
-    expect(pushed).toMatchObject({ data: { ticket: "T-1" }, resumeUrl: "http://n8n/next", done: false });
+    expect(pushed).toMatchObject({
+      data: { ticket: "T-1" },
+      resumeUrl: "http://n8n/next",
+      done: false,
+    });
     off();
   });
 
@@ -53,7 +61,10 @@ describe("callbackHandler", () => {
     const id = newId();
     createSession({ sessionId: id, formSlug: "wizard" });
     await callback(id, { data: { final: true } });
-    expect(getSession(id)).toMatchObject({ done: true, lastPayload: { final: true } });
+    expect(getSession(id)).toMatchObject({
+      done: true,
+      lastPayload: { final: true },
+    });
   });
 
   it("stores a sentinel and ends the session on a workflow error", async () => {
@@ -63,13 +74,20 @@ describe("callbackHandler", () => {
     let pushed: SseEvent | undefined;
     const off = subscribe(id, (e) => (pushed = e));
 
-    const res = await callback(id, { __error: true, message: "  workflow boom  " });
+    const res = await callback(id, {
+      __error: true,
+      message: "  workflow boom  ",
+    });
     expect(res.status).toBe(204);
     expect(getSession(id)).toMatchObject({
       done: true,
       lastPayload: { __workflowError: true, __errorMessage: "workflow boom" },
     });
-    expect(pushed).toMatchObject({ workflowError: true, errorMessage: "workflow boom", data: null });
+    expect(pushed).toMatchObject({
+      workflowError: true,
+      errorMessage: "workflow boom",
+      data: null,
+    });
     off();
   });
 
@@ -78,7 +96,10 @@ describe("callbackHandler", () => {
     createSession({ sessionId: id, formSlug: "wizard" });
     await callback(id, { __error: true });
     expect(getSession(id)).toMatchObject({
-      lastPayload: { __workflowError: true, __errorMessage: "The workflow reported an error." },
+      lastPayload: {
+        __workflowError: true,
+        __errorMessage: "The workflow reported an error.",
+      },
     });
   });
 });

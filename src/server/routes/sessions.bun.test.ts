@@ -6,7 +6,11 @@ const postToN8n = mock();
 mock.module("../n8n.ts", () => ({
   postToN8n,
   parseTimeout: (raw: unknown) =>
-    raw === "indefinite" ? false : typeof raw === "number" && raw > 0 ? raw : undefined,
+    raw === "indefinite"
+      ? false
+      : typeof raw === "number" && raw > 0
+        ? raw
+        : undefined,
 }));
 
 const { default: sessions } = await import("./sessions.ts");
@@ -52,7 +56,9 @@ describe("POST /:id/step", () => {
     createSession({ sessionId: id, formSlug: "wizard" });
     const res = await step(id, { answers: {} });
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "No resume URL available for this session" });
+    expect(await res.json()).toEqual({
+      error: "No resume URL available for this session",
+    });
   });
 
   it("400s on an invalid JSON body", async () => {
@@ -71,7 +77,10 @@ describe("POST /:id/step", () => {
     const res = await step(id, { answers: { a: 1 } });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { step: 2 }, done: false });
-    expect(getSession(id)).toMatchObject({ resumeUrl: "http://n8n/resume2", lastPayload: { step: 2 } });
+    expect(getSession(id)).toMatchObject({
+      resumeUrl: "http://n8n/resume2",
+      lastPayload: { step: 2 },
+    });
   });
 
   it("clears resumeUrl and buffered payload on a pending result", async () => {
@@ -81,11 +90,18 @@ describe("POST /:id/step", () => {
     const res = await step(id, { answers: {} });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ pending: true });
-    expect(getSession(id)).toMatchObject({ resumeUrl: null, lastPayload: null });
+    expect(getSession(id)).toMatchObject({
+      resumeUrl: null,
+      lastPayload: null,
+    });
   });
 
   it("maps a workflow business error to 422", async () => {
-    postToN8n.mockResolvedValue({ pending: false, workflowError: true, message: "nope" });
+    postToN8n.mockResolvedValue({
+      pending: false,
+      workflowError: true,
+      message: "nope",
+    });
     const res = await step(liveSession(), { answers: {} });
     expect(res.status).toBe(422);
     expect(await res.json()).toEqual({ error: "nope" });
@@ -111,7 +127,7 @@ describe("GET /:id/events (SSE)", () => {
     const res = await sessions.request(`/${id}/events`);
     const text = await res.text();
     expect(text).toContain("event: step");
-    expect(text).toContain("\"replayed\":true");
+    expect(text).toContain('"replayed":true');
     expect(text).toContain("ok");
   });
 
@@ -124,7 +140,7 @@ describe("GET /:id/events (SSE)", () => {
     });
     const res = await sessions.request(`/${id}/events`);
     const text = await res.text();
-    expect(text).toContain("\"workflowError\":true");
+    expect(text).toContain('"workflowError":true');
     expect(text).toContain("kaboom");
   });
 
@@ -135,7 +151,11 @@ describe("GET /:id/events (SSE)", () => {
     const readP = reader.read();
     // Let the stream callback register its subscriber before publishing.
     await new Promise((r) => setTimeout(r, 20));
-    const delivered = publish(id, { data: { live: 1 }, resumeUrl: null, done: true });
+    const delivered = publish(id, {
+      data: { live: 1 },
+      resumeUrl: null,
+      done: true,
+    });
     const { value } = await readP;
     const text = new TextDecoder().decode(value);
     expect(delivered).toBe(true);

@@ -283,8 +283,9 @@ integration guide.
 | `bun run lint` | Run ESLint across all source files |
 | `bun run preview` | Preview the Vite production build locally |
 | `bun run start` | Serve `dist/` + `/api/*` via the Hono BFF (production) |
-| `bun run test` | Run Vitest test suite once |
-| `bun run test:coverage` | Run Vitest with V8 coverage report |
+| `bun run test` | Run the full suite: Vitest (UI + pure lib) then `bun test` (Bun-runtime server files) |
+| `bun run test:coverage` | Run both suites with coverage + thresholds (Vitest V8, then `bun test`) |
+| `bun run test:server` | Run only the Bun-runtime server specs (`*.bun.test.ts`) via `bun test` |
 | `bun run test:watch` | Run Vitest in watch mode |
 <!-- /docs -->
 

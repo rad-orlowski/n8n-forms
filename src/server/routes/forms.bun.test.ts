@@ -7,7 +7,11 @@ const postToN8n = mock();
 mock.module("../n8n.ts", () => ({
   postToN8n,
   parseTimeout: (raw: unknown) =>
-    raw === "indefinite" ? false : typeof raw === "number" && raw > 0 ? raw : undefined,
+    raw === "indefinite"
+      ? false
+      : typeof raw === "number" && raw > 0
+        ? raw
+        : undefined,
 }));
 
 process.env.WEBHOOK_CONTACT = "http://n8n/webhook/contact";
@@ -43,11 +47,18 @@ describe("POST /:slug/start", () => {
     });
     const res = await start("contact", { answers: { name: "x" } });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { sessionId: string; data: unknown; done: boolean };
+    const body = (await res.json()) as {
+      sessionId: string;
+      data: unknown;
+      done: boolean;
+    };
     expect(body).toMatchObject({ data: { greeting: "hi" }, done: false });
 
     const stored = getSession(body.sessionId);
-    expect(stored).toMatchObject({ resumeUrl: "http://n8n/resume", done: false });
+    expect(stored).toMatchObject({
+      resumeUrl: "http://n8n/resume",
+      done: false,
+    });
   });
 
   it("returns a pending indicator on a 202 (async) result", async () => {
@@ -58,7 +69,11 @@ describe("POST /:slug/start", () => {
   });
 
   it("maps a workflow business error to 422", async () => {
-    postToN8n.mockResolvedValue({ pending: false, workflowError: true, message: "bad input" });
+    postToN8n.mockResolvedValue({
+      pending: false,
+      workflowError: true,
+      message: "bad input",
+    });
     const res = await start("contact", { answers: {} });
     expect(res.status).toBe(422);
     expect(await res.json()).toEqual({ error: "bad input" });
@@ -80,8 +95,17 @@ describe("POST /:slug/start", () => {
   });
 
   it("forwards resumeUrlPath and method through to postToN8n", async () => {
-    postToN8n.mockResolvedValue({ pending: false, data: null, resumeUrl: null, done: true });
-    await start("contact", { answers: { a: 1 }, resumeUrlPath: "meta.next", method: "GET" });
+    postToN8n.mockResolvedValue({
+      pending: false,
+      data: null,
+      resumeUrl: null,
+      done: true,
+    });
+    await start("contact", {
+      answers: { a: 1 },
+      resumeUrlPath: "meta.next",
+      method: "GET",
+    });
     expect(postToN8n).toHaveBeenCalledWith(
       "http://n8n/webhook/contact",
       expect.objectContaining({ answers: { a: 1 } }),

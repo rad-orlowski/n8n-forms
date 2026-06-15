@@ -20,8 +20,15 @@ beforeEach(() => {
 });
 
 /** Build an HTTPError whose response yields the given body + status. */
-function httpError(status: number, body: string, contentType = "application/json") {
-  const res = new Response(body, { status, headers: { "content-type": contentType } });
+function httpError(
+  status: number,
+  body: string,
+  contentType = "application/json",
+) {
+  const res = new Response(body, {
+    status,
+    headers: { "content-type": contentType },
+  });
   return new HTTPError(res, new Request("http://bff/x"), {} as never);
 }
 
@@ -33,12 +40,20 @@ describe("startForm", () => {
   it("returns a sync result with done coerced to boolean", async () => {
     post.mockResolvedValue(jsonResponse({ sessionId: "s1", data: { a: 1 } }));
     const res = await startForm("contact", { name: "x" });
-    expect(res).toEqual({ sessionId: "s1", pending: false, data: { a: 1 }, done: false });
+    expect(res).toEqual({
+      sessionId: "s1",
+      pending: false,
+      data: { a: 1 },
+      done: false,
+    });
   });
 
   it("returns a pending result when the BFF replies pending", async () => {
     post.mockResolvedValue(jsonResponse({ sessionId: "s2", pending: true }));
-    expect(await startForm("contact", {})).toEqual({ sessionId: "s2", pending: true });
+    expect(await startForm("contact", {})).toEqual({
+      sessionId: "s2",
+      pending: true,
+    });
   });
 
   it("forwards answers and omits optional body keys when unset", async () => {
@@ -54,7 +69,12 @@ describe("startForm", () => {
     post.mockResolvedValue(jsonResponse({ sessionId: "s", done: true }));
     await startForm("contact", {}, "data.resumeUrl", "GET", 1234);
     expect(post).toHaveBeenCalledWith("/api/forms/contact/start", {
-      json: { answers: {}, resumeUrlPath: "data.resumeUrl", method: "GET", timeoutMs: 1234 },
+      json: {
+        answers: {},
+        resumeUrlPath: "data.resumeUrl",
+        method: "GET",
+        timeoutMs: 1234,
+      },
       timeout: 1234,
     });
   });
@@ -69,7 +89,11 @@ describe("startForm", () => {
 describe("stepForm", () => {
   it("returns a sync step result", async () => {
     post.mockResolvedValue(jsonResponse({ data: { next: true }, done: true }));
-    expect(await stepForm("s1", { a: 1 })).toEqual({ pending: false, data: { next: true }, done: true });
+    expect(await stepForm("s1", { a: 1 })).toEqual({
+      pending: false,
+      data: { next: true },
+      done: true,
+    });
   });
 
   it("returns pending when the BFF replies pending", async () => {
@@ -80,30 +104,51 @@ describe("stepForm", () => {
   it("targets the session step endpoint", async () => {
     post.mockResolvedValue(jsonResponse({ done: true }));
     await stepForm("sess-9", { a: 1 });
-    expect(post).toHaveBeenCalledWith("/api/sessions/sess-9/step", expect.anything());
+    expect(post).toHaveBeenCalledWith(
+      "/api/sessions/sess-9/step",
+      expect.anything(),
+    );
   });
 });
 
 describe("error handling", () => {
   it("extracts the BFF error message from a JSON HTTPError body", async () => {
-    post.mockRejectedValue(httpError(422, JSON.stringify({ error: "workflow failed" })));
-    expect(await startForm("contact", {})).toEqual({ ok: false, status: 422, message: "workflow failed" });
+    post.mockRejectedValue(
+      httpError(422, JSON.stringify({ error: "workflow failed" })),
+    );
+    expect(await startForm("contact", {})).toEqual({
+      ok: false,
+      status: 422,
+      message: "workflow failed",
+    });
   });
 
   it("falls back to the status line for a non-JSON error body", async () => {
     post.mockRejectedValue(httpError(500, "<html>oops</html>", "text/html"));
-    expect(await stepForm("s1", {})).toEqual({ ok: false, status: 500, message: "HTTP 500" });
+    expect(await stepForm("s1", {})).toEqual({
+      ok: false,
+      status: 500,
+      message: "HTTP 500",
+    });
   });
 
   it("maps a TimeoutError to status 0", async () => {
     const err = new TimeoutError(new Request("http://bff/x"));
     post.mockRejectedValue(err);
-    expect(await startForm("contact", {})).toEqual({ ok: false, status: 0, message: err.message });
+    expect(await startForm("contact", {})).toEqual({
+      ok: false,
+      status: 0,
+      message: err.message,
+    });
   });
 
   it("uses the message of a generic Error", async () => {
     post.mockRejectedValue(new Error("network down"));
-    expect(await startForm("contact", {})).toEqual({ ok: false, status: 0, message: "network down" });
+    expect(await startForm("contact", {})).toEqual({
+      ok: false,
+      status: 0,
+      message: "network down",
+    });
   });
 
   it("uses a default message for a non-Error throw", async () => {

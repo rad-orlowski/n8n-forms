@@ -33,7 +33,9 @@ describe("defineForm", () => {
   it("throws when page 0 uses optionsFrom", () => {
     expect(() =>
       defineForm(
-        form({ pages: [page([{ type: "select", name: "s", optionsFrom: "x" }])] }),
+        form({
+          pages: [page([{ type: "select", name: "s", optionsFrom: "x" }])],
+        }),
       ),
     ).toThrow(/optionsFrom on page 0/);
   });
@@ -48,7 +50,9 @@ describe("defineForm", () => {
 
   it("names the field by type when name is absent in the diagnostic", () => {
     expect(() =>
-      defineForm(form({ pages: [page([{ type: "select", optionsFrom: "x" }])] })),
+      defineForm(
+        form({ pages: [page([{ type: "select", optionsFrom: "x" }])] }),
+      ),
     ).toThrow(/"select"/);
   });
 
@@ -65,11 +69,18 @@ describe("defineForm", () => {
 
 describe("resolveTimeoutMs", () => {
   it("prefers the page override", () => {
-    expect(resolveTimeoutMs(form({ timeoutMs: 5000 }), { fields: [], timeoutMs: 1000 })).toBe(1000);
+    expect(
+      resolveTimeoutMs(form({ timeoutMs: 5000 }), {
+        fields: [],
+        timeoutMs: 1000,
+      }),
+    ).toBe(1000);
   });
 
   it("falls back to the form default", () => {
-    expect(resolveTimeoutMs(form({ timeoutMs: 5000 }), { fields: [] })).toBe(5000);
+    expect(resolveTimeoutMs(form({ timeoutMs: 5000 }), { fields: [] })).toBe(
+      5000,
+    );
   });
 
   it("falls back to DEFAULT_TIMEOUT_MS when neither is set", () => {
@@ -77,16 +88,29 @@ describe("resolveTimeoutMs", () => {
   });
 
   it("passes through the indefinite sentinel", () => {
-    expect(resolveTimeoutMs(form(), { fields: [], timeoutMs: "indefinite" })).toBe("indefinite");
+    expect(
+      resolveTimeoutMs(form(), { fields: [], timeoutMs: "indefinite" }),
+    ).toBe("indefinite");
   });
 });
 
 describe("isStaticField", () => {
-  it.each(["heading", "description", "image", "alert"])("is true for %s", (type) => {
+  it.each([
+    "heading",
+    "description",
+    "image",
+    "alert",
+  ])("is true for %s", (type) => {
     expect(isStaticField({ type })).toBe(true);
   });
 
-  it.each(["text", "email", "select", "number", "checkbox"])("is false for %s", (type) => {
+  it.each([
+    "text",
+    "email",
+    "select",
+    "number",
+    "checkbox",
+  ])("is false for %s", (type) => {
     expect(isStaticField({ type })).toBe(false);
   });
 });
@@ -134,7 +158,9 @@ describe("buildZodSchema", () => {
 
   describe("number / rating", () => {
     it("coerces strings and enforces min/max", () => {
-      const s = buildZodSchema([{ type: "number", name: "n", required: true, min: 1, max: 10 }]);
+      const s = buildZodSchema([
+        { type: "number", name: "n", required: true, min: 1, max: 10 },
+      ]);
       expect(s.safeParse({ n: "5" }).success).toBe(true);
       expect(s.safeParse({ n: "0" }).success).toBe(false);
       expect(s.safeParse({ n: "11" }).success).toBe(false);
@@ -146,7 +172,9 @@ describe("buildZodSchema", () => {
     });
 
     it("rating shares the numeric branch", () => {
-      const s = buildZodSchema([{ type: "rating", name: "r", required: true, max: 5 }]);
+      const s = buildZodSchema([
+        { type: "rating", name: "r", required: true, max: 5 },
+      ]);
       expect(s.safeParse({ r: 3 }).success).toBe(true);
       expect(s.safeParse({ r: 6 }).success).toBe(false);
     });
@@ -154,7 +182,9 @@ describe("buildZodSchema", () => {
 
   describe("checkbox", () => {
     it("required must be checked", () => {
-      const s = buildZodSchema([{ type: "checkbox", name: "c", required: true }]);
+      const s = buildZodSchema([
+        { type: "checkbox", name: "c", required: true },
+      ]);
       expect(s.safeParse({ c: true }).success).toBe(true);
       expect(s.safeParse({ c: false }).success).toBe(false);
     });
@@ -168,14 +198,18 @@ describe("buildZodSchema", () => {
 
   describe("richtext", () => {
     it("required rejects empty markup but accepts real text", () => {
-      const s = buildZodSchema([{ type: "richtext", name: "rt", required: true }]);
+      const s = buildZodSchema([
+        { type: "richtext", name: "rt", required: true },
+      ]);
       expect(s.safeParse({ rt: "<p></p>" }).success).toBe(false);
       expect(s.safeParse({ rt: "<p>&nbsp;</p>" }).success).toBe(false);
       expect(s.safeParse({ rt: "<p>hello</p>" }).success).toBe(true);
     });
 
     it("required accepts embedded media even without text", () => {
-      const s = buildZodSchema([{ type: "richtext", name: "rt", required: true }]);
+      const s = buildZodSchema([
+        { type: "richtext", name: "rt", required: true },
+      ]);
       expect(s.safeParse({ rt: '<img src="x.png">' }).success).toBe(true);
     });
 

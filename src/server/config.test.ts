@@ -60,7 +60,9 @@ describe("PORT and PUBLIC_BASE_URL", () => {
   });
 
   it("uses PUBLIC_BASE_URL when set and strips a trailing slash", async () => {
-    const mod = await loadConfig({ PUBLIC_BASE_URL: "https://forms.example.com/" });
+    const mod = await loadConfig({
+      PUBLIC_BASE_URL: "https://forms.example.com/",
+    });
     expect(mod.PUBLIC_BASE_URL).toBe("https://forms.example.com");
   });
 });
