@@ -37,6 +37,18 @@ export function resolveFormConfig(slug: string): FormConfig | null {
 export const PORT: number = Number(process.env.PORT ?? 3000);
 
 /**
+ * Whether example/demo forms (those under forms/examples/) are shown in the
+ * console. Defaults to true — set SHOW_EXAMPLE_FORMS=false in .env to hide them
+ * without deleting the example definitions. Any value other than a falsy string
+ * ("false", "0", "no", "off", "") counts as enabled.
+ */
+export const SHOW_EXAMPLE_FORMS: boolean = (() => {
+  const raw = process.env.SHOW_EXAMPLE_FORMS;
+  if (raw == null) return true; // default: show examples
+  return !["false", "0", "no", "off", ""].includes(raw.trim().toLowerCase());
+})();
+
+/**
  * Base URL used when constructing callbackUrl.
  * Must NOT have a trailing slash.
  * Defaults to localhost for local dev — override in production.

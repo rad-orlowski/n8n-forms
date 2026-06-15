@@ -4,7 +4,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
-import { forms, getForm } from "@/forms/index";
+import { getForm, isExampleForm, visibleForms } from "@/forms/index";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,36 @@ function useHashRoute(): string {
   }, []);
 
   return slug;
+}
+
+// ── runtime config ───────────────────────────────────────────────────────────
+
+/**
+ * Reads the BFF's non-secret runtime config (GET /api/config) once on mount.
+ * Returns `undefined` while loading, then the resolved `showExampleForms` flag.
+ *
+ * Falls back to `true` (show examples) when the config can't be fetched — e.g.
+ * the BFF-less `dev:vite` standalone server, where /api/config isn't served.
+ */
+function useShowExampleForms(): boolean | undefined {
+  const [show, setShow] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg: { showExampleForms?: boolean } | null) => {
+        if (!cancelled) setShow(cfg?.showExampleForms !== false);
+      })
+      .catch(() => {
+        if (!cancelled) setShow(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return show;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -92,9 +122,7 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
           {pageCount > 1 && (
             <>
               <span className="text-border select-none">·</span>
-              <span>
-                {pageCount} steps
-              </span>
+              <span>{pageCount} steps</span>
             </>
           )}
         </div>
@@ -103,15 +131,13 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
   );
 }
 
-function ConsoleIndex() {
+function ConsoleIndex({ forms }: { forms: FormSchema[] }) {
   return (
     <div className="animate-rise">
       {/* page header */}
       <div className="mb-8">
         <p className="label-tech mb-3">n8n · webhook console</p>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">
-          Form console
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Form console</h1>
         <p className="text-muted-foreground text-sm">
           Select a form to trigger its n8n automation workflow.
         </p>
@@ -156,15 +182,23 @@ function UnknownForm({ slug }: { slug: string }) {
 
 export default function App() {
   const slug = useHashRoute();
+  const showExamples = useShowExampleForms();
   const form = slug ? getForm(slug) : undefined;
+
+  // Until runtime config resolves we can't decide whether an example form is
+  // reachable, so hold rendering behind a lightweight placeholder. The fetch is
+  // same-origin and typically sub-10ms.
+  const loading = showExamples === undefined;
 
   return (
     <>
       <ThemeSwitcher />
       <div className="mx-auto w-full max-w-2xl px-5 py-12 md:py-16">
-        {slug === "" ? (
-          <ConsoleIndex />
-        ) : form ? (
+        {loading ? (
+          <p className="label-tech animate-rise">loading…</p>
+        ) : slug === "" ? (
+          <ConsoleIndex forms={visibleForms(showExamples)} />
+        ) : form && (showExamples || !isExampleForm(form.slug)) ? (
           // key by slug so navigating between forms remounts FormShell with
           // fresh wizard state (phase/session/answers) instead of leaking the
           // previous form's "done" state.

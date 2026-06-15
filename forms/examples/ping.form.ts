@@ -10,7 +10,13 @@ export default defineForm({
   pages: [
     {
       fields: [
-        { type: "text", name: "message", label: "Message", placeholder: "hello n8n", required: true },
+        {
+          type: "text",
+          name: "message",
+          label: "Message",
+          placeholder: "hello n8n",
+          required: true,
+        },
       ],
     },
   ],

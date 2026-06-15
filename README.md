@@ -38,7 +38,8 @@ SSE, and dynamic field values fed back from n8n at runtime.
 
 > The forms above ship as runnable examples in
 > [`forms/examples/`](forms/examples) — copy one as a starting point for your
-> own.
+> own. To hide every example from the console without deleting them, set
+> `SHOW_EXAMPLE_FORMS=false` in `.env` (default is `true`).
 
 ---
 
@@ -162,10 +163,16 @@ is needed. Just create the file, add the env keys, and restart the dev server.
 
 The full form schema is the source of truth in
 [`src/lib/schema.ts`](src/lib/schema.ts). See
-[`forms/ping.form.ts`](forms/ping.form.ts) for a minimal working example,
-[`forms/wizard-demo.form.ts`](forms/wizard-demo.form.ts) for multi-page +
-dynamic fields, or [`forms/examples/`](forms/examples) for fuller single-page
-forms.
+[`forms/examples/ping.form.ts`](forms/examples/ping.form.ts) for a minimal
+working example, [`forms/examples/wizard-demo.form.ts`](forms/examples/wizard-demo.form.ts)
+for multi-page + dynamic fields, or [`forms/examples/`](forms/examples) for
+fuller single-page forms.
+
+> **Examples vs. your own forms.** Any form under `forms/examples/` is treated
+> as an example and is hidden from the console when `SHOW_EXAMPLE_FORMS=false`.
+> Keep your own forms at the top level of `forms/` so they always show. The SPA
+> reads this flag at load time from `GET /api/config` (no secrets in that
+> response).
 
 ### Rendering the workflow response
 
@@ -206,7 +213,7 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 | `contact` | Contact Us | [`forms/examples/contact.form.ts`](forms/examples/contact.form.ts) |
 | `event-rsvp` | Event RSVP | [`forms/examples/event-rsvp.form.ts`](forms/examples/event-rsvp.form.ts) |
 | `feedback` | Share Feedback | [`forms/examples/feedback.form.ts`](forms/examples/feedback.form.ts) |
-| `ping` | Ping | [`forms/ping.form.ts`](forms/ping.form.ts) |
+| `ping` | Ping | [`forms/examples/ping.form.ts`](forms/examples/ping.form.ts) |
 | `wizard-demo` | Wizard Demo | [`forms/examples/wizard-demo.form.ts`](forms/examples/wizard-demo.form.ts) |
 <!-- /docs -->
 
