@@ -9,7 +9,7 @@
  *
  * Returns two arrays:
  *   forms     — successfully parsed + validated FormSchema objects
- *   rejected  — files that failed to parse or validate, each with a reason
+ *   rejected  — files that failed to parse or validate, each with an errors array
  *
  * Guarantees:
  *   - Empty result (no error thrown) when the directory is missing.
@@ -26,8 +26,8 @@ import { FormSchema } from "../lib/schema.ts";
 export interface RejectedForm {
   /** Absolute path of the file that was rejected. */
   file: string;
-  /** Human-readable reason (parse error message or Zod error summary). */
-  reason: string;
+  /** One entry per error (parse error message or individual Zod issue). */
+  errors: string[];
 }
 
 export interface LoadResult {
@@ -63,9 +63,9 @@ function collectFiles(dir: string): string[] {
 
 /**
  * Parse and validate every form file in `dir` (recursive).
- * Returns `{ forms, rejected }`. Never throws.
+ * Returns `{ forms, rejected }`. Never throws. Synchronous.
  */
-export async function loadFormsFromDir(dir: string): Promise<LoadResult> {
+export function loadFormsFromDir(dir: string): LoadResult {
   if (!existsSync(dir) || !statSync(dir).isDirectory()) {
     return { forms: [], rejected: [] };
   }
@@ -85,16 +85,19 @@ export async function loadFormsFromDir(dir: string): Promise<LoadResult> {
     try {
       raw = parser(readFileSync(file, "utf8"));
     } catch (err) {
-      rejected.push({ file, reason: String(err) });
+      rejected.push({
+        file,
+        errors: [`parse error: ${(err as Error).message}`],
+      });
       continue;
     }
 
     const result = FormSchema.safeParse(raw);
     if (!result.success) {
-      const reason = result.error.issues
-        .map((i) => `${i.path.join(".")}: ${i.message}`)
-        .join("; ");
-      rejected.push({ file, reason });
+      const errors = result.error.issues.map(
+        (i) => `${i.path.join(".") || "(root)"}: ${i.message}`,
+      );
+      rejected.push({ file, errors });
       continue;
     }
 
@@ -126,7 +129,9 @@ function enforceUniqueSlugs(
     if ((slugCount.get(form.slug) ?? 0) > 1) {
       extraRejected.push({
         file,
-        reason: `slug conflict: "${form.slug}" appears in multiple files`,
+        errors: [
+          `slug "${form.slug}" is declared by ${slugCount.get(form.slug)} files — all rejected`,
+        ],
       });
     } else {
       forms.push(form);
