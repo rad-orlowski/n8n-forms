@@ -4,7 +4,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
-import { getForm, isExampleForm, visibleForms } from "@/forms/index";
+import { useForms, type RejectedForm } from "@/forms/client";
 import { resolveIcon } from "@/lib/icons";
 
 // ── hash router ────────────────────────────────────────────────────────────────
@@ -35,41 +35,32 @@ function useHashRoute(): string {
   return slug;
 }
 
-// ── runtime config ───────────────────────────────────────────────────────────
-
-/**
- * Reads the BFF's non-secret runtime config (GET /api/config) once on mount.
- * Returns `undefined` while loading, then the resolved `showExampleForms` flag.
- *
- * Falls back to `true` (show examples) when the config can't be fetched — e.g.
- * the BFF-less `dev:vite` standalone server, where /api/config isn't served.
- */
-function useShowExampleForms(): boolean | undefined {
-  const [show, setShow] = useState<boolean | undefined>(undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/config")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg: { showExampleForms?: boolean } | null) => {
-        if (!cancelled) setShow(cfg?.showExampleForms !== false);
-      })
-      .catch(() => {
-        if (!cancelled) setShow(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return show;
-}
-
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 /** Total field count across all pages (for the console card). */
 function totalFieldCount(form: FormSchema): number {
   return form.pages.reduce((sum, p) => sum + p.fields.length, 0);
+}
+
+// ── rejected banner ───────────────────────────────────────────────────────────
+
+function RejectedBanner({ rejected }: { rejected: RejectedForm[] }) {
+  if (rejected.length === 0) return null;
+  return (
+    <div className="mb-6 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 animate-rise">
+      <p className="label-tech text-destructive mb-2">
+        ⚠ {rejected.length} form{rejected.length !== 1 ? "s" : ""} failed to
+        load
+      </p>
+      <ul className="space-y-1 text-xs text-muted-foreground">
+        {rejected.map((r) => (
+          <li key={r.file}>
+            <code className="font-mono">{r.file}</code>: {r.errors.join("; ")}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // ── console index ──────────────────────────────────────────────────────────────
@@ -134,9 +125,16 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
   );
 }
 
-function ConsoleIndex({ forms }: { forms: FormSchema[] }) {
+function ConsoleIndex({
+  forms,
+  rejected,
+}: {
+  forms: FormSchema[];
+  rejected: RejectedForm[];
+}) {
   return (
     <div className="animate-rise">
+      <RejectedBanner rejected={rejected} />
       {/* page header */}
       <div className="mb-8">
         <p className="label-tech mb-3">n8n · webhook console</p>
@@ -185,13 +183,8 @@ function UnknownForm({ slug }: { slug: string }) {
 
 export default function App() {
   const slug = useHashRoute();
-  const showExamples = useShowExampleForms();
-  const form = slug ? getForm(slug) : undefined;
-
-  // Until runtime config resolves we can't decide whether an example form is
-  // reachable, so hold rendering behind a lightweight placeholder. The fetch is
-  // same-origin and typically sub-10ms.
-  const loading = showExamples === undefined;
+  const { forms, rejected, loading } = useForms();
+  const form = slug ? forms.find((f) => f.slug === slug) : undefined;
 
   return (
     <>
@@ -200,8 +193,8 @@ export default function App() {
         {loading ? (
           <p className="label-tech animate-rise">loading…</p>
         ) : slug === "" ? (
-          <ConsoleIndex forms={visibleForms(showExamples)} />
-        ) : form && (showExamples || !isExampleForm(form.slug)) ? (
+          <ConsoleIndex forms={forms} rejected={rejected} />
+        ) : form ? (
           // key by slug so navigating between forms remounts FormShell with
           // fresh wizard state (phase/session/answers) instead of leaking the
           // previous form's "done" state.
