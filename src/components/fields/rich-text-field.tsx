@@ -59,6 +59,7 @@ import { LinkIcon } from "@/components/tiptap-icons/link-icon";
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint";
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility";
+import { useValueFromField } from "@/hooks/useValueFromField";
 
 // --- Button primitive ---
 import { Button } from "@/components/tiptap-ui-primitive/button";
@@ -249,6 +250,11 @@ export function RichTextField({ field, def }: FieldComponentProps) {
       field.onBlur();
     },
   });
+
+  // Reactive prefill from a sibling select (valueFromField).
+  // This calls field.onChange(text) when the named source select changes, which
+  // then triggers the effect below to mirror the value into the TipTap editor.
+  useValueFromField(def.valueFromField, field);
 
   // Reactive prefill: when field.value changes from OUTSIDE the editor (e.g.
   // valueFromField driven by a sibling select), mirror it into TipTap. Compare
