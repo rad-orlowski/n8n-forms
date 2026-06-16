@@ -46,7 +46,12 @@ export function SegmentedField({ field, def }: FieldComponentProps) {
             type="button"
             role="radio"
             aria-checked={selected}
-            tabIndex={selected || (field.value === "" && idx === 0) ? 0 : -1}
+            tabIndex={
+              selected ||
+              (!options.some((o) => o.value === field.value) && idx === 0)
+                ? 0
+                : -1
+            }
             onClick={() => handleSelect(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             className={cn(

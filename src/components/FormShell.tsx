@@ -929,7 +929,7 @@ function ResponseCell({ field }: { field: ResolvedField }) {
                   .filter(Boolean)
                   .join(" · ");
                 return (
-                  <li key={i} className="transcript-row">
+                  <li key={m.ts ?? i} className="transcript-row">
                     <span className={`transcript-dot ${dir}`} aria-hidden />
                     <div>
                       <div className="label-tech text-[10px] mb-0.5 text-muted-foreground">
