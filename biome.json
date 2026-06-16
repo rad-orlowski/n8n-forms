@@ -26,10 +26,7 @@
   },
   "css": {
     "parser": {
-      "cssModules": false
-    },
-    "formatter": {
-      "enabled": false
+      "tailwindDirectives": true
     }
   },
   "assist": {
