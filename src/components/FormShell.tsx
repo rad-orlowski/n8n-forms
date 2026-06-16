@@ -43,6 +43,7 @@ import {
   type FormSchema,
   type ResponseConfig,
 } from "@/lib/schema";
+import { resolveVisibleFields } from "@/lib/resolve-fields";
 import { resolveIcon } from "@/lib/icons";
 import { openEventStream, startForm, stepForm } from "@/lib/submit";
 
@@ -82,14 +83,8 @@ export function FormShell({ schema }: { schema: FormSchema }) {
 
   const page = schema.pages[currentPage];
 
-  // Pre-compute per-page zod schema and default values from this page's fields.
+  // Pre-compute per-page default values from this page's fields.
   // valueFrom pre-fills fields whose values come from n8n step data.
-  const zodSchema = useMemo(
-    () => buildZodSchema(page.fields),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentPage, page.fields],
-  );
-
   const resolvedDefaults = useMemo(() => {
     const base = defaultValues(page.fields);
     // Apply valueFrom bindings for pages ≥ 1 that have stepData available
@@ -105,18 +100,36 @@ export function FormShell({ schema }: { schema: FormSchema }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, stepData]);
 
+  // Ref-backed schema so RHF's resolver always validates against the current
+  // set of visible/required fields (RHF captures the resolver at init and
+  // won't re-read it on re-render; the ref bridges that gap).
+  const schemaRef = useRef(buildZodSchema(page.fields));
+
   const form = useForm({
-    resolver: zodResolver(zodSchema),
+    resolver: (values, ctx, opts) =>
+      zodResolver(schemaRef.current)(values, ctx, opts),
     defaultValues: resolvedDefaults,
     mode: "onTouched",
   });
+
+  // Recompute visible/required fields whenever values change.
+  const watched = form.watch();
+  const resolvedFields = useMemo(
+    () => resolveVisibleFields(page.fields, watched),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentPage, page.fields, JSON.stringify(watched)],
+  );
+  // Keep the resolver's schema in sync with the resolved (visible) fields.
+  schemaRef.current = useMemo(
+    () => buildZodSchema(resolvedFields),
+    [resolvedFields],
+  );
 
   // Reset the RHF instance and selected-item context whenever the page advances.
   useEffect(() => {
     form.reset(resolvedDefaults);
     // Intentional: clear selected raw items when navigating to a new page so a
     // prior page's selection can't leak into a sibling field's valueFromField.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedItems({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
@@ -420,11 +433,10 @@ export function FormShell({ schema }: { schema: FormSchema }) {
           <Form {...form}>
             <form
               ref={formRef}
-              // eslint-disable-next-line react-hooks/refs -- onInvalidSubmit reads formRef.current only when invoked as a submit handler, not during render
               onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
               className="mt-6 space-y-6"
             >
-              {page.fields.map((def, i) => {
+              {resolvedFields.map((def, i) => {
                 if (isStaticField(def)) {
                   const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
                   if (!StaticComponent) return null;
