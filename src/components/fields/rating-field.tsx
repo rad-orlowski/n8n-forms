@@ -9,7 +9,7 @@ import type { FieldComponentProps } from "@/lib/schema";
  * This is the worked reference for adding your own controls:
  *   1. Build a component with the { field, def } contract.
  *   2. Register its `type` string in src/components/fields/index.ts.
- *   3. Use { type: "rating", name, ... } in any *.form.ts file.
+ *   3. Use { type: "rating", name, ... } in any *.form.json5 file.
  */
 export function RatingField({ field, def }: FieldComponentProps) {
   const max = def.max ?? 5;

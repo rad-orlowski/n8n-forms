@@ -53,8 +53,8 @@ function RejectedBanner({ rejected }: { rejected: RejectedForm[] }) {
         load
       </p>
       <ul className="space-y-1 text-xs text-muted-foreground">
-        {rejected.map((r) => (
-          <li key={r.file}>
+        {rejected.map((r, i) => (
+          <li key={`${r.file}-${i}`}>
             <code className="font-mono">{r.file}</code>: {r.errors.join("; ")}
           </li>
         ))}

@@ -125,4 +125,13 @@ describe("GET /", () => {
     expect(Array.isArray(body.forms)).toBe(true);
     expect(Array.isArray(body.rejected)).toBe(true);
   });
+
+  it("response keys are exactly { forms, rejected } — no exampleSlugs", async () => {
+    const res = await forms.request("/");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    const keys = Object.keys(body).sort();
+    expect(keys).toEqual(["forms", "rejected"]);
+    expect("exampleSlugs" in body).toBe(false);
+  });
 });

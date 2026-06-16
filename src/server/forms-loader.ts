@@ -198,16 +198,22 @@ export function resetFormsCache(): void {
   cache = null;
 }
 
+/** Browser-safe view of a load result (no internal fields). */
+export interface PublicLoadResult {
+  forms: FormSchema[];
+  rejected: RejectedForm[];
+}
+
 /**
  * Browser-safe view of a LoadResult: rejected file paths are reduced to their
  * basename so the HTTP response never leaks absolute server paths / directory
  * layout (personal forms may live in a gitignored external dir).
+ * `exampleSlugs` is intentionally omitted — it is server-internal.
  */
-export function toPublicForms(result: LoadResult): LoadResult {
+export function toPublicForms(result: LoadResult): PublicLoadResult {
   return {
     forms: result.forms,
     rejected: result.rejected.map((r) => ({ ...r, file: basename(r.file) })),
-    exampleSlugs: result.exampleSlugs,
   };
 }
 

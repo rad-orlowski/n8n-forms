@@ -87,12 +87,8 @@ forms.post("/:slug/start", async (c) => {
 // Example forms are filtered out server-side when SHOW_EXAMPLE_FORMS is false.
 // FormSchema carries no secrets, so the full definitions are browser-safe.
 forms.get("/", (c) => {
-  const {
-    forms: visible,
-    rejected,
-    exampleSlugs,
-  } = filterVisible(getForms(), SHOW_EXAMPLE_FORMS);
-  return c.json(toPublicForms({ forms: visible, rejected, exampleSlugs }));
+  const filtered = filterVisible(getForms(), SHOW_EXAMPLE_FORMS);
+  return c.json(toPublicForms(filtered));
 });
 
 export default forms;

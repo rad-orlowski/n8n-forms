@@ -1,11 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "src/server/dev.ts",
-    "forms/*.form.ts",
-    "src/components/ui/**/*.tsx"
-  ],
-  "project": ["src/**/*.{ts,tsx}", "forms/**/*.ts"],
+  "entry": ["src/server/dev.ts", "src/components/ui/**/*.tsx"],
+  "project": ["src/**/*.{ts,tsx}"],
   "ignore": [
     "src/components/tiptap-*/**",
     "src/hooks/**",

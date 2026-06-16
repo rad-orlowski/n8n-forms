@@ -5,7 +5,7 @@ import { z } from "zod";
 /**
  * Field + form contract shared by the whole system.
  *
- * - A *form* is one file in forms/*.form.ts that calls defineForm(...).
+ * - A *form* is one file in forms/*.form.json5 (or .yaml) validated by defineForm().
  * - A *field* is rendered by a component registered in src/components/fields/index.ts
  *   keyed by `type`. Add a new `type` string + component there to extend the system;
  *   no other file needs to change.
