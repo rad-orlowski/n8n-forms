@@ -168,9 +168,14 @@ export function filterVisible(
   showExamples: boolean,
 ): LoadResult {
   if (showExamples) return result;
+  const exampleSet = new Set(result.exampleSlugs);
+  const forms = result.forms.filter((f) => !exampleSet.has(f.slug));
   return {
     ...result,
-    forms: result.forms.filter((f) => !result.exampleSlugs.includes(f.slug)),
+    forms,
+    exampleSlugs: forms
+      .filter((f) => exampleSet.has(f.slug))
+      .map((f) => f.slug),
   };
 }
 
