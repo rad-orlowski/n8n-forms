@@ -10,7 +10,11 @@
  *   PORT              — HTTP listen port (default 3000)
  *   PUBLIC_BASE_URL   — scheme+host+optional-port used to build callbackUrl
  *                       e.g. "https://forms.example.com" or "http://localhost:3000"
+ *   FORMS_DIR         — directory scanned for form definitions (*.form.{json5,yaml,yml})
+ *                       defaults to ./forms; resolved to an absolute path
  */
+
+import { resolve } from "node:path";
 
 /** Normalise a form slug to its env-var suffix. */
 export function slugToEnvKey(slug: string): string {
@@ -56,3 +60,10 @@ export const SHOW_EXAMPLE_FORMS: boolean = (() => {
 export const PUBLIC_BASE_URL: string = (
   process.env.PUBLIC_BASE_URL ?? `http://localhost:${PORT}`
 ).replace(/\/$/, "");
+
+/**
+ * Directory the BFF scans for form definitions (`*.form.{json5,yaml,yml}`).
+ * Defaults to `./forms`. Point at an external/gitignored dir for personal,
+ * zero-footprint forms. Resolved to an absolute path.
+ */
+export const FORMS_DIR: string = resolve(process.env.FORMS_DIR ?? "./forms");

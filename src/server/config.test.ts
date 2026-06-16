@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveFormConfig, slugToEnvKey } from "./config.ts";
+import { resolveFormConfig, slugToEnvKey, FORMS_DIR } from "./config.ts";
+import { isAbsolute } from "node:path";
 
 /** Re-import config.ts with SHOW_EXAMPLE_FORMS set to `value` (or unset). */
 async function loadFlag(value?: string): Promise<boolean> {
@@ -93,5 +94,14 @@ describe("SHOW_EXAMPLE_FORMS", () => {
     "anything",
   ])("is true for non-falsy value %j", async (v) => {
     expect(await loadFlag(v)).toBe(true);
+  });
+});
+
+describe("FORMS_DIR", () => {
+  it("is an absolute path", () => {
+    expect(isAbsolute(FORMS_DIR)).toBe(true);
+  });
+  it("defaults to a forms directory", () => {
+    expect(FORMS_DIR.endsWith("forms")).toBe(true);
   });
 });
