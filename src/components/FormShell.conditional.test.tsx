@@ -1,8 +1,27 @@
 // Component test — run via `vitest` (jsdom env), not `bun test` (no DOM).
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { FormShell } from "./FormShell";
 import type { FormSchema } from "@/lib/schema";
+
+// Mock the BFF client so a successful submit doesn't hit the network and we can
+// inspect exactly what payload FormShell hands off.
+const { startFormMock, stepFormMock, openEventStreamMock } = vi.hoisted(() => ({
+  startFormMock: vi.fn(),
+  stepFormMock: vi.fn(),
+  openEventStreamMock: vi.fn(),
+}));
+vi.mock("@/lib/submit", () => ({
+  startForm: startFormMock,
+  stepForm: stepFormMock,
+  openEventStream: openEventStreamMock,
+}));
+
+beforeEach(() => {
+  startFormMock.mockReset();
+  stepFormMock.mockReset();
+  openEventStreamMock.mockReset();
+});
 
 const schema = {
   slug: "cond",
@@ -92,5 +111,41 @@ describe("FormShell conditional visibility", () => {
         container.querySelector<HTMLInputElement>('[name="state"]'),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("excludes a field hidden by visibleIf from the submitted payload", async () => {
+    startFormMock.mockResolvedValue({
+      sessionId: "s1",
+      done: true,
+      data: null,
+    });
+    const { container } = render(<FormShell schema={schema} />);
+
+    // Reveal `state`, give it a value.
+    const country =
+      container.querySelector<HTMLInputElement>('[name="country"]')!;
+    fireEvent.change(country, { target: { value: "US" } });
+    const state = await waitFor(() =>
+      container.querySelector<HTMLInputElement>('[name="state"]'),
+    );
+    fireEvent.change(state!, { target: { value: "California" } });
+
+    // Hide `state` again by changing the controlling field.
+    fireEvent.change(country, { target: { value: "DE" } });
+    await waitFor(() =>
+      expect(
+        container.querySelector<HTMLInputElement>('[name="state"]'),
+      ).not.toBeInTheDocument(),
+    );
+
+    // Submit and inspect the payload handed to startForm (2nd argument).
+    fireEvent.click(
+      container.querySelector<HTMLButtonElement>('button[type="submit"]')!,
+    );
+    await waitFor(() => expect(startFormMock).toHaveBeenCalled());
+
+    const submitted = startFormMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(submitted).toMatchObject({ country: "DE" });
+    expect(submitted).not.toHaveProperty("state");
   });
 });

@@ -279,6 +279,27 @@ describe("buildZodSchema", () => {
       expect(s.safeParse({}).success).toBe(true);
     });
 
+    it("optional number left empty parses as absent, not 0", () => {
+      const s = buildZodSchema([{ type: "number", name: "n" }]);
+      const r = s.safeParse({ n: "" });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.n).toBeUndefined();
+    });
+
+    it("optional rating left undefined parses as absent, not 0", () => {
+      const s = buildZodSchema([{ type: "rating", name: "r" }]);
+      const r = s.safeParse({ r: undefined });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.r).toBeUndefined();
+    });
+
+    it("optional number still keeps an explicit 0", () => {
+      const s = buildZodSchema([{ type: "number", name: "n" }]);
+      const r = s.safeParse({ n: 0 });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.n).toBe(0);
+    });
+
     it("rating shares the numeric branch", () => {
       const s = buildZodSchema([
         { type: "rating", name: "r", required: true, max: 5 },
@@ -347,10 +368,29 @@ describe("defaultValues", () => {
       defaultValues([
         { type: "text", name: "t" },
         { type: "checkbox", name: "c" },
-        { type: "rating", name: "r" },
+        { type: "rating", name: "r", required: true },
         { type: "heading", content: "x" },
         { type: "number" }, // no name
       ]),
     ).toEqual({ t: "", c: false, r: 0 });
+  });
+
+  it("seeds undefined for optional number/rating so they stay absent from the payload", () => {
+    const dv = defaultValues([
+      { type: "number", name: "n" },
+      { type: "rating", name: "r" },
+    ]);
+    expect(dv.n).toBeUndefined();
+    expect(dv.r).toBeUndefined();
+    expect("n" in dv).toBe(true);
+    expect("r" in dv).toBe(true);
+  });
+
+  it("seeds a concrete value for required numerics (number → '', rating → 0)", () => {
+    const dv = defaultValues([
+      { type: "number", name: "n", required: true },
+      { type: "rating", name: "r", required: true },
+    ]);
+    expect(dv).toEqual({ n: "", r: 0 });
   });
 });

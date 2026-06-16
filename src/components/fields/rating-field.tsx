@@ -16,7 +16,12 @@ export function RatingField({ field, def }: FieldComponentProps) {
   const value = Number(field.value) || 0;
 
   return (
-    <div className="flex items-center gap-1" onBlur={field.onBlur}>
+    <div
+      role="group"
+      aria-label={def.label ?? "Rating"}
+      className="flex items-center gap-1"
+      onBlur={field.onBlur}
+    >
       {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
         <button
           key={n}

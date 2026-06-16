@@ -53,10 +53,24 @@ function isFormFile(name: string): boolean {
   return /\.form\.(json5|ya?ml)$/.test(name);
 }
 
-/** Collect all form files under `dir` recursively. */
+/**
+ * Collect all form files under `dir` recursively.
+ * Per-directory failures (permission denied, a directory removed mid-scan
+ * during hot-reload, etc.) are swallowed so the loader keeps its "never throws"
+ * guarantee — an unreadable subtree contributes no files rather than crashing.
+ */
 function collectFiles(dir: string): string[] {
   const results: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    console.warn(
+      `[forms] skipping unreadable directory ${dir}: ${(err as Error).message}`,
+    );
+    return results;
+  }
+  for (const entry of entries) {
     const abs = join(dir, entry.name);
     if (entry.isDirectory()) {
       results.push(...collectFiles(abs));
@@ -170,32 +184,30 @@ export function filterVisible(
   if (showExamples) return result;
   const exampleSet = new Set(result.exampleSlugs);
   const forms = result.forms.filter((f) => !exampleSet.has(f.slug));
-  return {
-    ...result,
-    forms,
-    exampleSlugs: forms
-      .filter((f) => exampleSet.has(f.slug))
-      .map((f) => f.slug),
-  };
+  // Every example slug has just been removed from `forms`, so the surviving set
+  // contains none of them — `exampleSlugs` is necessarily empty afterwards.
+  return { ...result, forms, exampleSlugs: [] };
 }
 
 // ---------------------------------------------------------------------------
 // Cache accessor
 // ---------------------------------------------------------------------------
 
-let cache: LoadResult | null = null;
+// Cache keyed by directory so a non-default `dir` is never silently served the
+// default FORMS_DIR result (and vice-versa). Each distinct dir caches independently.
+const cache = new Map<string, LoadResult>();
 
 /** Re-read + validate `dir` (default FORMS_DIR), update the cache, log a summary. */
 export function reloadForms(dir: string = FORMS_DIR): LoadResult {
   const result = loadFormsFromDir(dir);
-  cache = result;
+  cache.set(dir, result);
   logSummary(result);
   return result;
 }
 
-/** Return the cached result, loading once on first access. */
-export function getForms(): LoadResult {
-  return cache ?? reloadForms();
+/** Return the cached result for `dir` (default FORMS_DIR), loading once on first access. */
+export function getForms(dir: string = FORMS_DIR): LoadResult {
+  return cache.get(dir) ?? reloadForms(dir);
 }
 
 /** Browser-safe view of a load result (no internal fields). */

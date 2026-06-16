@@ -44,6 +44,7 @@ import {
   type ResponseConfig,
 } from "@/lib/schema";
 import { resolveVisibleFields } from "@/lib/resolve-fields";
+import { expressionVariables } from "@/lib/expr";
 import { resolveIcon } from "@/lib/icons";
 import { openEventStream, startForm, stepForm } from "@/lib/submit";
 
@@ -60,6 +61,23 @@ type WizardPhase =
   | { kind: "pending" } // waiting for SSE callback
   | { kind: "error"; message: string; status: number }
   | { kind: "done"; data: unknown };
+
+// Warn once per unknown field type. FieldDef.type is an open string at runtime
+// (forms are data, not code), so a typo like `type: "emil"` has no compile-time
+// guard — without this it would silently fall through to a text input (or render
+// nothing for a static slot). Deduped so a repeated type warns only once.
+const warnedFieldTypes = new Set<string>();
+function warnUnknownFieldType(type: string, kind: "input" | "static") {
+  if (warnedFieldTypes.has(type)) return;
+  warnedFieldTypes.add(type);
+  console.warn(
+    `[forms] unknown ${kind} field type "${type}" — ${
+      kind === "input"
+        ? "falling back to a text input."
+        : "nothing will render."
+    }`,
+  );
+}
 
 // ── main component ────────────────────────────────────────────────────────────
 
@@ -112,12 +130,37 @@ export function FormShell({ schema }: { schema: FormSchema }) {
     mode: "onTouched",
   });
 
-  // Recompute visible/required fields whenever values change.
-  const watched = form.watch();
-  const resolvedFields = useMemo(
-    () => resolveVisibleFields(page.fields, watched),
+  // Field names referenced by any visibleIf/requiredIf on this page. We narrow
+  // form.watch to just these so typing in a field no condition depends on does
+  // not re-render the whole shell (the prior `form.watch()` watched everything).
+  const conditionDeps = useMemo(() => {
+    const names = new Set<string>();
+    for (const f of page.fields) {
+      for (const key of ["visibleIf", "requiredIf"] as const) {
+        const expr = f[key];
+        if (expr) for (const v of expressionVariables(expr)) names.add(v);
+      }
+    }
+    return [...names];
+  }, [page.fields]);
+
+  // Values of only the condition-referenced fields. Empty array when the page
+  // has no conditional fields → no per-keystroke re-render at all.
+  const watchedDeps = form.watch(conditionDeps);
+  const watchScope = useMemo(() => {
+    const scope: Record<string, unknown> = {};
+    conditionDeps.forEach((name, i) => {
+      scope[name] = watchedDeps[i];
+    });
+    return scope;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentPage, page.fields, JSON.stringify(watched)],
+  }, [conditionDeps, JSON.stringify(watchedDeps)]);
+
+  // Recompute visible/required fields whenever a referenced value changes.
+  // (page.fields identity changes per page, so currentPage isn't a dep.)
+  const resolvedFields = useMemo(
+    () => resolveVisibleFields(page.fields, watchScope),
+    [page.fields, watchScope],
   );
   // Keep the resolver's schema in sync with the resolved (visible) fields.
   // Assigning a memoized value to a ref during render is intentional and safe
@@ -127,6 +170,28 @@ export function FormShell({ schema }: { schema: FormSchema }) {
     () => buildZodSchema(resolvedFields),
     [resolvedFields],
   );
+
+  // Names of the input fields currently visible on this page.
+  const visibleInputNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of resolvedFields) {
+      if (!isStaticField(f) && f.name) set.add(f.name);
+    }
+    return set;
+  }, [resolvedFields]);
+
+  // Strip values of fields hidden by `visibleIf` out of the RHF store so
+  // form.handleSubmit never delivers them to n8n. resolveVisibleFields only
+  // narrows rendering + Zod validation; without this the last value of a field
+  // hidden for the current branch would still be submitted. A field shown again
+  // re-registers from defaults via its FormField.
+  useEffect(() => {
+    for (const f of page.fields) {
+      if (isStaticField(f) || !f.name) continue;
+      if (!visibleInputNames.has(f.name)) form.unregister(f.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleInputNames, currentPage]);
 
   // Reset the RHF instance and selected-item context whenever the page advances.
   useEffect(() => {
@@ -442,7 +507,10 @@ export function FormShell({ schema }: { schema: FormSchema }) {
               {resolvedFields.map((def, i) => {
                 if (isStaticField(def)) {
                   const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
-                  if (!StaticComponent) return null;
+                  if (!StaticComponent) {
+                    warnUnknownFieldType(def.type, "static");
+                    return null;
+                  }
                   return (
                     <StaticComponent
                       key={def.name ?? `__static_${i}`}
@@ -502,6 +570,7 @@ function FieldRow({
     NonNullable<React.ComponentProps<typeof FormField>["render"]>
   >[0]["field"];
 }) {
+  if (!FIELD_REGISTRY[def.type]) warnUnknownFieldType(def.type, "input");
   const Component = FIELD_REGISTRY[def.type] ?? FIELD_REGISTRY.text;
   const required = def.required ? (
     <span className="ml-1 text-primary">*</span>

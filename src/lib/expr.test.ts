@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { evaluateCondition, validateExpressionSyntax } from "./expr";
+import {
+  evaluateCondition,
+  validateExpressionSyntax,
+  expressionVariables,
+} from "./expr";
+
+describe("expressionVariables", () => {
+  it("returns the field names a condition references", () => {
+    expect(
+      expressionVariables("role == 'manager' and tier > 2").sort(),
+    ).toEqual(["role", "tier"]);
+  });
+  it("returns an empty array for a literal-only expression", () => {
+    expect(expressionVariables("1 == 1")).toEqual([]);
+  });
+  it("returns an empty array for an unparseable expression", () => {
+    expect(expressionVariables("=== nope")).toEqual([]);
+  });
+});
 
 describe("evaluateCondition", () => {
   it("evaluates equality against scope (single-quoted string)", () => {

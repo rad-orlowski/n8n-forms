@@ -22,7 +22,17 @@ const ICON_REGISTRY: Record<string, LucideIcon> = {
   Target,
 };
 
+/** Names already warned about, so a misspelling logs once rather than per render. */
+const warnedIcons = new Set<string>();
+
 export function resolveIcon(name: string | undefined): LucideIcon | undefined {
   if (!name) return undefined;
-  return ICON_REGISTRY[name];
+  const icon = ICON_REGISTRY[name];
+  if (!icon && !warnedIcons.has(name)) {
+    warnedIcons.add(name);
+    console.warn(
+      `[forms] unknown icon "${name}" — no icon will render. Known: ${Object.keys(ICON_REGISTRY).join(", ")}`,
+    );
+  }
+  return icon;
 }

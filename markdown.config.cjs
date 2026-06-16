@@ -163,13 +163,23 @@ module.exports = {
         formFiles = collectFiles(path.join(ROOT, 'forms'), FORM_DATA_RE)
       }
 
+      const JSON5 = require('json5')
+      const { parse: parseYaml } = require('yaml')
+
       const forms = formFiles
         .map((file) => {
           const src = fs.readFileSync(path.join(ROOT, file), 'utf8')
-          const slugM = src.match(/slug:\s*["']([^"']+)["']/)
-          const titleM = src.match(/title:\s*["']([^"']+)["']/)
-          const slug = slugM?.[1] ?? path.basename(file).replace(FORM_DATA_RE, '')
-          const title = titleM?.[1] ?? slug
+          // Parse the form file with its real parser (not a regex) so slug/title
+          // are read structurally and never mis-scraped from a comment or string.
+          let data = {}
+          try {
+            data = /\.json5$/.test(file) ? JSON5.parse(src) : parseYaml(src)
+          } catch {
+            data = {}
+          }
+          const fallback = path.basename(file).replace(FORM_DATA_RE, '')
+          const slug = typeof data?.slug === 'string' ? data.slug : fallback
+          const title = typeof data?.title === 'string' ? data.title : slug
           return { slug, title, file }
         })
         .sort((a, b) => a.slug.localeCompare(b.slug))

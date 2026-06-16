@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { createSession, getSession, updateSession } from "../db.ts";
-import { publish } from "../events.ts";
+import { publish, hasSubscriber } from "../events.ts";
 
 const postToN8n = mock();
 mock.module("../n8n.ts", () => ({
@@ -149,8 +149,13 @@ describe("GET /:id/events (SSE)", () => {
     const res = await sessions.request(`/${id}/events`);
     const reader = res.body!.getReader();
     const readP = reader.read();
-    // Let the stream callback register its subscriber before publishing.
-    await new Promise((r) => setTimeout(r, 20));
+    // Poll until the stream callback has registered its subscriber, rather than
+    // racing a fixed sleep (flaky under coverage/CI load → publish() returns false).
+    const deadline = Date.now() + 1000;
+    while (!hasSubscriber(id)) {
+      if (Date.now() > deadline) throw new Error("subscriber never registered");
+      await new Promise((r) => setTimeout(r, 5));
+    }
     const delivered = publish(id, {
       data: { live: 1 },
       resumeUrl: null,

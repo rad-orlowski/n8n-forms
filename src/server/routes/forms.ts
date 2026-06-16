@@ -45,7 +45,10 @@ forms.post("/:slug/start", async (c) => {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  // Mint a new session
+  // Mint a new session. NOTE: the row is created before the n8n call, so a
+  // failed start (catch below) leaves an orphan row. This is acceptable — the
+  // 30-min idle TTL GC in db.ts reaps it, and a no-resumeUrl/not-done row can't
+  // be stepped. We accept the orphan rather than add rollback complexity.
   const sessionId = crypto.randomUUID();
   createSession({ sessionId, formSlug: slug });
 

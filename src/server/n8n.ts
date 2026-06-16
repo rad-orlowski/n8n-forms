@@ -115,17 +115,35 @@ export class N8nNetworkError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
+ * Upper bound for a client-supplied numeric `timeoutMs` (5 minutes). A numeric
+ * request above this is clamped, so a client cannot pin an outbound connection
+ * open for hours. Unbounded waiting still requires the explicit `"indefinite"`
+ * opt-in (an author-controlled form/page setting, not a stray large number).
+ */
+export const MAX_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
  * Coerce a client-supplied `timeoutMs` body value into a ky timeout override.
  *   - `"indefinite"`        → `false` (no timeout)
- *   - a positive finite num → that many ms
+ *   - a positive finite num → that many ms, clamped to `MAX_TIMEOUT_MS`
  *   - anything else / absent → `undefined` (fall back to the module default)
- * The value is untrusted client input, so it is validated, not trusted.
+ * The value is untrusted client input, so it is validated + bounded, not trusted.
  */
 export function parseTimeout(raw: unknown): number | false | undefined {
   if (raw === "indefinite") return false;
-  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return Math.min(raw, MAX_TIMEOUT_MS);
+  }
   return undefined;
 }
+
+/**
+ * Dot-path characters we accept in a client-supplied `resumeUrlPath`: word
+ * chars, dots, and bracket indices. The path only ever feeds `es-toolkit` `get`
+ * (prototype-safe) against the n8n reply, so this is defense-in-depth — an
+ * unexpected shape falls back to the standard top-level `resumeUrl`.
+ */
+const SAFE_DOT_PATH_RE = /^[\w.[\]]+$/;
 
 /** Per-call options for {@link postToN8n}. */
 export interface PostToN8nOptions {
@@ -228,10 +246,13 @@ export async function postToN8n(
         ? rest
         : null;
 
-  // Resolve resumeUrl: use dot-path when provided, otherwise fall back to
-  // the top-level `resumeUrl` field (standard contract).
+  // Resolve resumeUrl: use the dot-path when provided AND it matches the safe
+  // shape, otherwise fall back to the top-level `resumeUrl` field (standard
+  // contract). A malformed/over-broad path never reaches `get`.
   const resolvedResume =
-    resumeUrlPath != null ? get(payload0, resumeUrlPath) : payload0.resumeUrl;
+    resumeUrlPath != null && SAFE_DOT_PATH_RE.test(resumeUrlPath)
+      ? get(payload0, resumeUrlPath)
+      : payload0.resumeUrl;
   const resumeUrl = typeof resolvedResume === "string" ? resolvedResume : null;
 
   return {

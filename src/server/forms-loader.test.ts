@@ -138,8 +138,31 @@ describe("cache accessor", () => {
     write("c.form.json5", `{ slug: "c", title: "C", pages: [{ fields: [] }] }`);
     const second = reloadForms(dir);
     expect(second.forms.map((f) => f.slug).sort()).toEqual(["a", "c"]);
-    // getForms() returns the last loaded result without re-reading
-    expect(getForms()).toBe(second);
+    // getForms(dir) returns the last loaded result for that dir without re-reading
+    expect(getForms(dir)).toBe(second);
+  });
+
+  it("caches per-directory — a second dir does not clobber the first", () => {
+    const dirB = mkdtempSync(join(tmpdir(), "forms-loader-test-b-"));
+    try {
+      write(
+        "a.form.json5",
+        `{ slug: "a", title: "A", pages: [{ fields: [] }] }`,
+      );
+      writeFileSync(
+        join(dirB, "b.form.json5"),
+        `{ slug: "b", title: "B", pages: [{ fields: [] }] }`,
+      );
+      const resA = reloadForms(dir);
+      const resB = reloadForms(dirB);
+      // Each dir keeps its own cached result; loading B must not evict A.
+      expect(getForms(dir)).toBe(resA);
+      expect(getForms(dirB)).toBe(resB);
+      expect(getForms(dir).forms.map((f) => f.slug)).toEqual(["a"]);
+      expect(getForms(dirB).forms.map((f) => f.slug)).toEqual(["b"]);
+    } finally {
+      rmSync(dirB, { recursive: true, force: true });
+    }
   });
 });
 
@@ -189,6 +212,8 @@ describe("example-ness + filterVisible", () => {
     expect(visible.forms.map((f: { slug: string }) => f.slug)).toEqual([
       "real",
     ]);
+    // The examples were just stripped, so no example slug can survive.
+    expect(visible.exampleSlugs).toEqual([]);
   });
 
   it("filterVisible keeps everything when showExamples is true", () => {

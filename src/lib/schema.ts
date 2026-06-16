@@ -93,22 +93,22 @@ export const FormSchema = z
     response: ResponseConfigSchema.optional(),
   })
   .superRefine((schema, ctx) => {
-    for (const field of schema.pages[0]?.fields ?? []) {
+    (schema.pages[0]?.fields ?? []).forEach((field, fieldIdx) => {
       if (field.optionsFrom != null) {
         ctx.addIssue({
           code: "custom",
-          path: ["pages", 0, "fields"],
+          path: ["pages", 0, "fields", fieldIdx, "optionsFrom"],
           message: `field "${field.name ?? field.type}" uses optionsFrom on page 0 — dynamic fields require page index >= 1.`,
         });
       }
       if (field.valueFrom != null) {
         ctx.addIssue({
           code: "custom",
-          path: ["pages", 0, "fields"],
+          path: ["pages", 0, "fields", fieldIdx, "valueFrom"],
           message: `field "${field.name ?? field.type}" uses valueFrom on page 0 — dynamic fields require page index >= 1.`,
         });
       }
-    }
+    });
 
     schema.pages.forEach((p, pageIdx) => {
       p.fields.forEach((field, fieldIdx) => {
@@ -213,7 +213,17 @@ export function buildZodSchema(fields: FieldDef[]) {
         let num = z.coerce.number({ error: "Enter a number" });
         if (f.min != null) num = num.min(f.min, `Must be ≥ ${f.min}`);
         if (f.max != null) num = num.max(f.max, `Must be ≤ ${f.max}`);
-        s = f.required ? num : num.optional();
+        // An optional numeric left untouched must stay *absent* from the payload,
+        // not coerce to 0. defaultValues seeds `undefined`; the empty-string an
+        // input may emit is normalised back to undefined before .optional() so
+        // the key is omitted rather than sent as 0.
+        s = f.required
+          ? num
+          : z.preprocess(
+              (v) =>
+                v === "" || v === null || v === undefined ? undefined : v,
+              num.optional(),
+            );
         break;
       }
       case "checkbox": {
@@ -259,8 +269,18 @@ export function defaultValues(fields: FieldDef[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const f of fields) {
     if (isStaticField(f) || !f.name) continue;
-    values[f.name] =
-      f.type === "checkbox" ? false : f.type === "rating" ? 0 : "";
+    // Optional numerics seed `undefined` so an untouched field is omitted from
+    // the payload (see buildZodSchema). Required numerics keep a concrete seed
+    // ("" for number inputs, 0 for the rating control) to stay controlled.
+    if (f.type === "checkbox") {
+      values[f.name] = false;
+    } else if (f.type === "rating") {
+      values[f.name] = f.required ? 0 : undefined;
+    } else if (f.type === "number") {
+      values[f.name] = f.required ? "" : undefined;
+    } else {
+      values[f.name] = "";
+    }
   }
   return values;
 }

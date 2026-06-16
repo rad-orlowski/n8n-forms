@@ -51,6 +51,10 @@ describe("parseTimeout", () => {
   it("passes through a positive finite number", () => {
     expect(parseTimeout(2500)).toBe(2500);
   });
+  it("clamps a numeric value to the 5-minute ceiling", () => {
+    expect(parseTimeout(60 * 60 * 1000)).toBe(5 * 60 * 1000);
+    expect(parseTimeout(5 * 60 * 1000)).toBe(5 * 60 * 1000);
+  });
   it.each([
     0,
     -1,
@@ -142,6 +146,17 @@ describe("postToN8n", () => {
       resumeUrlPath: "meta.next",
     });
     expect(result).toMatchObject({ resumeUrl: "http://n8n/deep" });
+  });
+
+  it("ignores a malformed resumeUrlPath and falls back to top-level resumeUrl", async () => {
+    instance.post.mockResolvedValue(
+      res({ data: 1, resumeUrl: "http://n8n/top", evil: "http://x" }),
+    );
+    const result = await postToN8n("http://n8n/hook", payload, {
+      // contains characters outside the safe dot-path shape
+      resumeUrlPath: "evil; rm -rf /",
+    });
+    expect(result).toMatchObject({ resumeUrl: "http://n8n/top" });
   });
 
   describe("workflow business error (__error: true)", () => {

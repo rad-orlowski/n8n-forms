@@ -40,6 +40,21 @@ export function evaluateCondition(
   }
 }
 
+/**
+ * Return the field names a condition expression references, e.g.
+ * `"role == 'manager' and tier > 2"` → `["role", "tier"]`. Used by FormShell to
+ * subscribe `form.watch` to only the fields that can flip a visibility/required
+ * decision, rather than re-rendering on every keystroke of every field.
+ * Returns `[]` for an unparseable expression (syntax is validated at load time).
+ */
+export function expressionVariables(expr: string): string[] {
+  try {
+    return parser.parse(expr).variables();
+  } catch {
+    return [];
+  }
+}
+
 export type SyntaxResult = { ok: true } | { ok: false; error: string };
 
 /** Validate expression *syntax* (used at form load time). */
