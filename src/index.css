@@ -1,6 +1,6 @@
-@import './styles/_variables.scss';
-@import './styles/_tiptap-theme-overrides.scss';
-@import './styles/_keyframe-animations.scss';
+@import "./styles/_variables.scss";
+@import "./styles/_tiptap-theme-overrides.scss";
+@import "./styles/_keyframe-animations.scss";
 
 @tailwind base;
 @tailwind components;
@@ -103,16 +103,22 @@
     background-image:
       radial-gradient(
         110% 80% at 50% -10%,
-        hsl(36 96% 56% / 0.10),
+        hsl(36 96% 56% / 0.1),
         transparent 60%
       ),
       linear-gradient(var(--grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 100% 100%, 44px 44px, 44px 44px;
+    background-size:
+      100% 100%,
+      44px 44px,
+      44px 44px;
     background-attachment: fixed;
   }
 
-  h1, h2, h3, .font-display {
+  h1,
+  h2,
+  h3,
+  .font-display {
     /* Expanded from @apply font-display — avoids Tailwind 3 circular-dependency
        error at build time when selector name matches the utility class name. */
     font-family: "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
@@ -137,8 +143,14 @@
   }
 
   @keyframes rise-in {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .animate-rise {
     animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -148,8 +160,14 @@
 
   /* Validation error message: fade + tiny upward slide-in */
   @keyframes error-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .animate-error-in {
     animation: error-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -157,8 +175,14 @@
 
   /* Success / error panel: scale-up from 98% + fade */
   @keyframes panel-in {
-    from { opacity: 0; transform: scale(0.98) translateY(6px); }
-    to   { opacity: 1; transform: scale(1)    translateY(0); }
+    from {
+      opacity: 0;
+      transform: scale(0.98) translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
   .animate-panel-in {
     animation: panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -166,8 +190,14 @@
 
   /* Response field rows: staggered slide-in from left (set animation-delay inline) */
   @keyframes field-in {
-    from { opacity: 0; transform: translateX(-6px); }
-    to   { opacity: 1; transform: translateX(0); }
+    from {
+      opacity: 0;
+      transform: translateX(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
   .animate-field-in {
     animation: field-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -176,12 +206,25 @@
   /* ── shake on submit-with-errors ─────────────────────────────────────── */
 
   @keyframes shake {
-    0%,  100% { transform: translateX(0); }
-    15%        { transform: translateX(-5px); }
-    30%        { transform: translateX(4px); }
-    45%        { transform: translateX(-3px); }
-    60%        { transform: translateX(2px); }
-    75%        { transform: translateX(-1px); }
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    15% {
+      transform: translateX(-5px);
+    }
+    30% {
+      transform: translateX(4px);
+    }
+    45% {
+      transform: translateX(-3px);
+    }
+    60% {
+      transform: translateX(2px);
+    }
+    75% {
+      transform: translateX(-1px);
+    }
   }
   .animate-shake {
     animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
@@ -194,10 +237,54 @@
   textarea,
   select {
     transition:
-      color        150ms ease,
+      color 150ms ease,
       border-color 150ms ease,
-      box-shadow   200ms cubic-bezier(0.22, 1, 0.36, 1),
-      background   150ms ease;
+      box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 150ms ease;
+  }
+
+  /* ── transcript timeline ────────────────────────────────────────────── */
+
+  .transcript {
+    position: relative;
+    padding-left: 22px;
+    list-style: none;
+    margin: 0;
+  }
+  .transcript::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 4px;
+    bottom: 4px;
+    width: 1px;
+    background: hsl(var(--border));
+  }
+  .transcript-row {
+    position: relative;
+    padding-bottom: 16px;
+  }
+  .transcript-row:last-child {
+    padding-bottom: 0;
+  }
+  .transcript-dot {
+    position: absolute;
+    left: -19px;
+    top: 3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid hsl(var(--background));
+  }
+  .transcript-dot.out {
+    background: hsl(var(--primary));
+  }
+  .transcript-dot.in {
+    background: hsl(var(--accent));
+  }
+  .transcript-dot.draft {
+    background: transparent;
+    border-color: hsl(var(--primary));
   }
 
   /* ── prefers-reduced-motion guard ───────────────────────────────────── */

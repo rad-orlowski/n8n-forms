@@ -10,6 +10,7 @@ import { CheckboxField } from "./checkbox-field";
 import { DateField } from "./date-field";
 import { RatingField } from "./rating-field";
 import { RichTextField } from "./rich-text-field";
+import { SegmentedField } from "./segmented-field";
 import { UrlField } from "./url-field";
 import { HeadingField } from "./heading-field";
 import { DescriptionField } from "./description-field";
@@ -32,6 +33,7 @@ export const FIELD_REGISTRY: Record<string, FieldComponent> = {
   date: DateField,
   rating: RatingField,
   richtext: RichTextField, // custom: TipTap simple editor (built by tiptap-eng)
+  segmented: SegmentedField,
 };
 
 /**

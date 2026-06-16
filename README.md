@@ -235,6 +235,7 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 | `date` | input | sends ISO date string |
 | `rating` | input | `max` defaults to 5, sends number |
 | `richtext` | input | TipTap editor — sends HTML; debounced ~250 ms, flushes on blur |
+| `segmented` | input | toggle group — single-select string, like `select` (best for 2–4 options) |
 | `heading` | static | display only — no payload value |
 | `description` | static | display only — no payload value |
 | `image` | static | display only — no payload value |

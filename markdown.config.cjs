@@ -116,6 +116,8 @@ module.exports = {
             ? 'TipTap editor — sends HTML; debounced ~250 ms, flushes on blur'
             : t === 'select'
               ? 'requires `options: [{label, value}]`'
+              : t === 'segmented'
+                ? 'toggle group — single-select string, like `select` (best for 2–4 options)'
               : t === 'number'
                 ? 'supports `min` / `max`'
                 : t === 'rating'

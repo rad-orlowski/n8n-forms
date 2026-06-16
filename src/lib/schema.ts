@@ -62,7 +62,7 @@ export type PageDef = z.infer<typeof PageDefSchema>;
 export const ResponseFieldSchema = z.object({
   key: z.string(),
   label: z.string().optional(),
-  format: z.enum(["heading", "tags", "list"]).optional(),
+  format: z.enum(["heading", "tags", "list", "transcript", "copy"]).optional(),
   prose: z.boolean().optional(),
   section: z.string().optional(),
   hideIfEmpty: z.boolean().optional(),
