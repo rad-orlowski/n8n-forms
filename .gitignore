@@ -49,10 +49,9 @@ AGENTS.md
 .claude/
 skills-lock.json
 
-# User forms — personal definitions stay local; ping + the public examples are tracked.
+# User forms — personal definitions stay local; the public examples are tracked.
 # Exclude the dir *contents* (not the dir itself) so subpaths can be re-included.
 /forms/*
-!/forms/ping.form.ts
 !/forms/examples/
 !/forms/form.schema.json
 
