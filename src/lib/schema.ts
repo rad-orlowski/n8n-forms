@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { ControllerRenderProps, FieldValues } from "react-hook-form";
 import { z } from "zod";
+import { validateExpressionSyntax } from "./expr";
 
 /**
  * Field + form contract shared by the whole system.
@@ -108,6 +109,23 @@ export const FormSchema = z
         });
       }
     }
+
+    schema.pages.forEach((p, pageIdx) => {
+      p.fields.forEach((field, fieldIdx) => {
+        for (const key of ["visibleIf", "requiredIf"] as const) {
+          const expr = field[key];
+          if (expr == null) continue;
+          const result = validateExpressionSyntax(expr);
+          if (!result.ok) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["pages", pageIdx, "fields", fieldIdx, key],
+              message: `${key} is not a valid expression: ${result.error}`,
+            });
+          }
+        }
+      });
+    });
   });
 export type FormSchema = z.infer<typeof FormSchema>;
 

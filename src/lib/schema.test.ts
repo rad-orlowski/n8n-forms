@@ -10,6 +10,8 @@ import {
   type FieldDef,
   type PageDef,
 } from "./schema";
+import { validateExpressionSyntax } from "./expr";
+void validateExpressionSyntax; // ensure module wiring
 
 const page = (fields: FieldDef[]): PageDef => ({ fields });
 const form = (overrides: Partial<FormSchema> = {}): FormSchema => ({
@@ -59,6 +61,45 @@ describe("FormSchema", () => {
   });
 
   it("accepts visibleIf / requiredIf as strings", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [
+        {
+          fields: [
+            {
+              type: "text",
+              name: "a",
+              visibleIf: "b == 'y'",
+              requiredIf: "b == 'y'",
+            },
+          ],
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a form with a syntactically broken visibleIf", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [{ fields: [{ type: "text", name: "a", visibleIf: "b == " }] }],
+    });
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r)).toContain("visibleIf");
+  });
+
+  it("rejects a syntactically broken requiredIf", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [{ fields: [{ type: "text", name: "a", requiredIf: "(" }] }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts valid visibleIf/requiredIf", () => {
     const r = FormSchema.safeParse({
       slug: "x",
       title: "X",
