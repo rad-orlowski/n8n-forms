@@ -12,7 +12,7 @@ import { Hono } from "hono";
 import { resolveFormConfig, PUBLIC_BASE_URL } from "../config.ts";
 import { createSession, updateSession } from "../db.ts";
 import { postToN8n, parseTimeout } from "../n8n.ts";
-import { getForms } from "../forms-loader.ts";
+import { getForms, toPublicForms } from "../forms-loader.ts";
 
 const forms = new Hono();
 
@@ -81,6 +81,6 @@ forms.post("/:slug/start", async (c) => {
 
 // GET /api/forms — list runtime-loaded forms + any that failed validation.
 // FormSchema carries no secrets, so the full definitions are browser-safe.
-forms.get("/", (c) => c.json(getForms()));
+forms.get("/", (c) => c.json(toPublicForms(getForms())));
 
 export default forms;

@@ -18,7 +18,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import JSON5 from "json5";
 import { parse as parseYaml } from "yaml";
 import { FormSchema } from "../lib/schema.ts";
@@ -80,7 +80,10 @@ export function loadFormsFromDir(dir: string): LoadResult {
   for (const file of files) {
     const ext = extname(file) as keyof typeof PARSERS;
     const parser = PARSERS[ext];
-    if (!parser) continue; // should not happen given isFormFile filter
+    if (!parser) {
+      rejected.push({ file, errors: [`unsupported extension: ${ext}`] });
+      continue;
+    }
 
     let raw: unknown;
     try {
@@ -159,6 +162,23 @@ export function reloadForms(dir: string = FORMS_DIR): LoadResult {
 /** Return the cached result, loading once on first access. */
 export function getForms(): LoadResult {
   return cache ?? reloadForms();
+}
+
+/** Clear the in-memory cache (test isolation / forced cold reload). */
+export function resetFormsCache(): void {
+  cache = null;
+}
+
+/**
+ * Browser-safe view of a LoadResult: rejected file paths are reduced to their
+ * basename so the HTTP response never leaks absolute server paths / directory
+ * layout (personal forms may live in a gitignored external dir).
+ */
+export function toPublicForms(result: LoadResult): LoadResult {
+  return {
+    forms: result.forms,
+    rejected: result.rejected.map((r) => ({ ...r, file: basename(r.file) })),
+  };
 }
 
 function logSummary(result: LoadResult): void {

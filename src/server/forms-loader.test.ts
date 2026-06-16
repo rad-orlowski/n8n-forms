@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadFormsFromDir, getForms, reloadForms } from "./forms-loader.ts";
+import {
+  loadFormsFromDir,
+  getForms,
+  reloadForms,
+  toPublicForms,
+} from "./forms-loader.ts";
 
 /** Minimal valid form payload as a JS object. */
 function validForm(slug: string) {
@@ -134,5 +139,20 @@ describe("cache accessor", () => {
     expect(second.forms.map((f) => f.slug).sort()).toEqual(["a", "c"]);
     // getForms() returns the last loaded result without re-reading
     expect(getForms()).toBe(second);
+  });
+});
+
+describe("toPublicForms", () => {
+  it("reduces rejected file paths to basename and leaves forms + errors intact", () => {
+    const result = {
+      forms: [],
+      rejected: [
+        { file: "/Users/secret/private/forms/x.form.json5", errors: ["boom"] },
+      ],
+    };
+    const pub = toPublicForms(result as never);
+    expect(pub.rejected[0].file).toBe("x.form.json5");
+    expect(pub.rejected[0].file.includes("/")).toBe(false);
+    expect(pub.rejected[0].errors).toEqual(["boom"]);
   });
 });
