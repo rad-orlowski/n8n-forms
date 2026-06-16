@@ -34,7 +34,6 @@ export default defineConfig({
         "src/server/config.ts",
         "src/server/events.ts",
         "src/server/n8n.ts",
-        "src/forms/index.ts",
       ],
       thresholds: {
         lines: 80,
