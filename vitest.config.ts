@@ -35,6 +35,7 @@ export default defineConfig({
         "src/lib/resolve-fields.ts",
         "src/server/config.ts",
         "src/server/events.ts",
+        "src/server/forms-loader.ts",
         "src/server/n8n.ts",
       ],
       thresholds: {

@@ -1,6 +1,9 @@
-import { Parser, type Values } from "expr-eval";
+import { Parser, type Values } from "expr-eval-fork";
 
-const parser = new Parser();
+// Disable assignment + function-definition operators outright: condition
+// expressions are read-only boolean tests, never mutations, so `assignment`
+// (the prototype-pollution vector) and `fndef` have no legitimate use here.
+const parser = new Parser({ operators: { assignment: false, fndef: false } });
 
 // expr-eval's built-in *functions* (random, etc.) are intentionally disabled:
 // every entry is removed from parser.functions, so a call like random() fails

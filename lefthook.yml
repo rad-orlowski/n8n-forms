@@ -45,7 +45,13 @@ pre-push:
     knip:
       run: bun knip
     audit:
-      run: bun audit
+      # Two advisories are ignored: both are moderate quadratic-complexity DoS
+      # issues in dev-only tooling deps with no reachable patched version —
+      # markdown-it (GHSA-6v5v-wf23-fmfq, via markdownlint-cli2) and js-yaml
+      # (GHSA-h67p-54hq-rp68, via markdownlint/markdown-magic/secretlint/
+      # commitlint). They are devDependencies, never shipped, and only parse
+      # trusted local files. Revisit when upstream publishes fixes.
+      run: bun audit --ignore=GHSA-6v5v-wf23-fmfq --ignore=GHSA-h67p-54hq-rp68
     depcruise:
       run: bun depcruise src --config .dependency-cruiser.cjs
     test:

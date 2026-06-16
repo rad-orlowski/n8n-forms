@@ -8,3 +8,9 @@
 [test]
 coverageThreshold = 0.8
 coverageSkipTestFiles = true
+# Node-runtime modules covered by the vitest suite — src/lib/* (schema.ts,
+# expr.ts, resolve-fields.ts, …) and forms-loader.ts (see forms-loader.test.ts).
+# They get pulled into this report only as transitive imports of the Bun-runtime
+# server files under test, so exclude them to keep this gate scoped to bun-only
+# code (db.ts → bun:sqlite, the Hono routes).
+coveragePathIgnorePatterns = ["**/lib/**", "**/forms-loader.ts"]

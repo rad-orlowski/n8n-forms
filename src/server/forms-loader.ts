@@ -198,11 +198,6 @@ export function getForms(): LoadResult {
   return cache ?? reloadForms();
 }
 
-/** Clear the in-memory cache (test isolation / forced cold reload). */
-export function resetFormsCache(): void {
-  cache = null;
-}
-
 /** Browser-safe view of a load result (no internal fields). */
 export interface PublicLoadResult {
   forms: FormSchema[];
