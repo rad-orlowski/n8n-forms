@@ -60,3 +60,4 @@ skills-lock.json
 .superpowers/
 /docs
 !/docs/adr/
+.dk/project.json

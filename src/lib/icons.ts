@@ -6,6 +6,7 @@ import {
   Wand2,
   ClipboardList,
   Briefcase,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ const ICON_REGISTRY: Record<string, LucideIcon> = {
   Wand2,
   ClipboardList,
   Briefcase,
+  Target,
 };
 
 export function resolveIcon(name: string | undefined): LucideIcon | undefined {
