@@ -113,3 +113,16 @@ describe("POST /:slug/start", () => {
     );
   });
 });
+
+describe("GET /", () => {
+  it("returns { forms, rejected } arrays", async () => {
+    const res = await forms.request("/");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      forms: unknown[];
+      rejected: unknown[];
+    };
+    expect(Array.isArray(body.forms)).toBe(true);
+    expect(Array.isArray(body.rejected)).toBe(true);
+  });
+});
