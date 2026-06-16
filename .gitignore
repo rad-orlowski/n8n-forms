@@ -54,6 +54,7 @@ skills-lock.json
 /forms/*
 !/forms/ping.form.ts
 !/forms/examples/
+!/forms/form.schema.json
 
 # Local-only working directories
 .superpowers/

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { FormShell } from "@/components/FormShell";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
 import { getForm, isExampleForm, visibleForms } from "@/forms/index";
+import { resolveIcon } from "@/lib/icons";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ function totalFieldCount(form: FormSchema): number {
 function FormCard({ form, index }: { form: FormSchema; index: number }) {
   const fieldCount = totalFieldCount(form);
   const pageCount = form.pages.length;
+  const FormIcon = resolveIcon(form.icon);
 
   return (
     <a
@@ -101,9 +103,10 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
         />
 
         <div className="flex items-center gap-2.5 mb-1">
-          {form.icon && (
-            <form.icon className="h-4 w-4 shrink-0 text-primary opacity-80" />
-          )}
+          {FormIcon &&
+            createElement(FormIcon, {
+              className: "h-4 w-4 shrink-0 text-primary opacity-80",
+            })}
           <h2 className="font-display text-lg font-semibold text-card-foreground leading-tight">
             {form.title}
           </h2>

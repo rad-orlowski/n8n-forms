@@ -1,11 +1,10 @@
-import { MessageSquareHeart } from "lucide-react";
 import { defineForm } from "@/lib/schema";
 
 // Example form (committed, public). Showcases the rating + rich-text fields.
 // Webhook is resolved server-side from WEBHOOK_FEEDBACK in the server's env.
 export default defineForm({
   slug: "feedback",
-  icon: MessageSquareHeart,
+  icon: "MessageSquareHeart",
   title: "Share Feedback",
   description: "Tell us what's working and what isn't.",
   submitLabel: "Submit feedback",
@@ -17,9 +16,16 @@ export default defineForm({
           type: "alert",
           variant: "info",
           label: "Heads up",
-          content: "This form is an example. Wire it to your own n8n webhook to collect real responses.",
+          content:
+            "This form is an example. Wire it to your own n8n webhook to collect real responses.",
         },
-        { type: "rating", name: "score", label: "Overall, how was your experience?", max: 5, required: true },
+        {
+          type: "rating",
+          name: "score",
+          label: "Overall, how was your experience?",
+          max: 5,
+          required: true,
+        },
         {
           type: "select",
           name: "area",
@@ -38,7 +44,11 @@ export default defineForm({
           description: "Formatting welcome — bold the parts that matter most.",
           required: true,
         },
-        { type: "checkbox", name: "contactMe", label: "It's OK to follow up with me about this" },
+        {
+          type: "checkbox",
+          name: "contactMe",
+          label: "It's OK to follow up with me about this",
+        },
       ],
     },
   ],

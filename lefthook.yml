@@ -7,6 +7,7 @@ pre-commit:
     format:
       glob: "*.{ts,tsx,json,css,scss}"
       run: bun biome format --write {staged_files}
+      stage_fixed: true
     typecheck:
       run: bun tsc -b --noEmit
     secrets:
@@ -51,3 +52,5 @@ pre-push:
       run: bun run test:coverage
     build:
       run: bun run build
+    schema:
+      run: bun run schema:generate && git diff --exit-code forms/form.schema.json

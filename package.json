@@ -10,6 +10,7 @@
     "docs:generate": "md-magic --files '**/*.md' --config ./markdown.config.cjs && md-magic --files '.claude/**/*.md' --config ./markdown.config.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
+    "schema:generate": "bun scripts/generate-form-schema.ts",
     "start": "bun src/server/index.ts",
     "test": "vitest run && DB_PATH=:memory: bun test bun.test",
     "test:coverage": "vitest run --coverage && DB_PATH=:memory: bun test bun.test --coverage",

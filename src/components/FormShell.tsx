@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { get } from "es-toolkit/compat";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +43,7 @@ import {
   type FormSchema,
   type ResponseConfig,
 } from "@/lib/schema";
+import { resolveIcon } from "@/lib/icons";
 import { openEventStream, startForm, stepForm } from "@/lib/submit";
 
 // ── response panel defaults ────────────────────────────────────────────────────
@@ -367,6 +375,7 @@ export function FormShell({ schema }: { schema: FormSchema }) {
   // ── form (active page) state ──────────────────────────────────────────────────
 
   const pageCount = schema.pages.length;
+  const HeaderIcon = resolveIcon(schema.icon);
 
   return (
     <section className="animate-rise">
@@ -382,9 +391,10 @@ export function FormShell({ schema }: { schema: FormSchema }) {
           )}
         </p>
         <div className="mt-2 flex items-center gap-3">
-          {schema.icon && (
-            <schema.icon className="h-8 w-8 shrink-0 text-primary opacity-80" />
-          )}
+          {HeaderIcon &&
+            createElement(HeaderIcon, {
+              className: "h-8 w-8 shrink-0 text-primary opacity-80",
+            })}
           <h1 className="text-3xl font-bold md:text-4xl">{schema.title}</h1>
         </div>
         {/* Page-level title (if different from form title) */}

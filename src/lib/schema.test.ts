@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TIMEOUT_MS,
+  FormSchema,
   buildZodSchema,
   defaultValues,
   defineForm,
   isStaticField,
   resolveTimeoutMs,
   type FieldDef,
-  type FormSchema,
   type PageDef,
 } from "./schema";
 
@@ -19,15 +19,82 @@ const form = (overrides: Partial<FormSchema> = {}): FormSchema => ({
   ...overrides,
 });
 
-describe("defineForm", () => {
-  it("returns the schema unchanged for a valid form", () => {
-    const schema = form();
-    expect(defineForm(schema)).toBe(schema);
+describe("FormSchema", () => {
+  const valid = {
+    slug: "contact",
+    title: "Contact",
+    pages: [{ fields: [{ type: "text", name: "msg", required: true }] }],
+  };
+
+  it("accepts a minimal valid form", () => {
+    expect(FormSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("tolerates a form with no pages", () => {
-    const schema = { slug: "empty", title: "Empty", pages: [] };
-    expect(defineForm(schema)).toBe(schema);
+  it("rejects a form with no pages", () => {
+    expect(
+      FormSchema.safeParse({ slug: "x", title: "X", pages: [] }).success,
+    ).toBe(false);
+  });
+
+  it("rejects optionsFrom on page 0 via superRefine", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [{ fields: [{ type: "select", name: "s", optionsFrom: "opts" }] }],
+    });
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r)).toContain("optionsFrom");
+  });
+
+  it("allows optionsFrom on page >= 1", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [
+        { fields: [{ type: "text", name: "a" }] },
+        { fields: [{ type: "select", name: "s", optionsFrom: "opts" }] },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts visibleIf / requiredIf as strings", () => {
+    const r = FormSchema.safeParse({
+      slug: "x",
+      title: "X",
+      pages: [
+        {
+          fields: [
+            {
+              type: "text",
+              name: "a",
+              visibleIf: "b == 'y'",
+              requiredIf: "b == 'y'",
+            },
+          ],
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("defineForm", () => {
+  it("returns a validated, deep-equal copy for a valid form", () => {
+    const schema = form();
+    expect(defineForm(schema)).toEqual(schema);
+  });
+
+  it("throws on a form with no pages", () => {
+    expect(() =>
+      defineForm({ slug: "empty", title: "Empty", pages: [] } as never),
+    ).toThrow();
+  });
+
+  it("throws on an invalid form (multiple violations)", () => {
+    expect(() =>
+      defineForm({ slug: "", title: "", pages: [] } as never),
+    ).toThrow();
   });
 
   it("throws when page 0 uses optionsFrom", () => {
@@ -53,7 +120,7 @@ describe("defineForm", () => {
       defineForm(
         form({ pages: [page([{ type: "select", optionsFrom: "x" }])] }),
       ),
-    ).toThrow(/"select"/);
+    ).toThrow(/select/);
   });
 
   it("allows dynamic fields on pages at index >= 1", () => {
@@ -63,7 +130,7 @@ describe("defineForm", () => {
         page([{ type: "select", name: "b", optionsFrom: "opts" }]),
       ],
     });
-    expect(defineForm(schema)).toBe(schema);
+    expect(defineForm(schema)).toEqual(schema);
   });
 });
 
