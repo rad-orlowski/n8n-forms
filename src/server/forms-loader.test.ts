@@ -7,6 +7,7 @@ import {
   getForms,
   reloadForms,
   toPublicForms,
+  filterVisible,
 } from "./forms-loader.ts";
 
 /** Minimal valid form payload as a JS object. */
@@ -154,5 +155,48 @@ describe("toPublicForms", () => {
     expect(pub.rejected[0].file).toBe("x.form.json5");
     expect(pub.rejected[0].file.includes("/")).toBe(false);
     expect(pub.rejected[0].errors).toEqual(["boom"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// example-ness + filterVisible
+// ---------------------------------------------------------------------------
+describe("example-ness + filterVisible", () => {
+  it("marks forms under examples/ as example slugs", () => {
+    mkdirSync(join(dir, "examples"));
+    writeFileSync(
+      join(dir, "examples", "e.form.json5"),
+      `{ slug: "e", title: "E", pages: [{ fields: [] }] }`,
+    );
+    write(
+      "real.form.json5",
+      `{ slug: "real", title: "R", pages: [{ fields: [] }] }`,
+    );
+    const r = loadFormsFromDir(dir);
+    expect(r.exampleSlugs).toEqual(["e"]);
+  });
+
+  it("filterVisible drops example forms when showExamples is false", () => {
+    const result = {
+      forms: [
+        { slug: "e", title: "E", pages: [{ fields: [] }] },
+        { slug: "real", title: "R", pages: [{ fields: [] }] },
+      ],
+      rejected: [],
+      exampleSlugs: ["e"],
+    } as never;
+    const visible = filterVisible(result, false);
+    expect(visible.forms.map((f: { slug: string }) => f.slug)).toEqual([
+      "real",
+    ]);
+  });
+
+  it("filterVisible keeps everything when showExamples is true", () => {
+    const result = {
+      forms: [{ slug: "e" }],
+      rejected: [],
+      exampleSlugs: ["e"],
+    } as never;
+    expect(filterVisible(result, true).forms).toHaveLength(1);
   });
 });

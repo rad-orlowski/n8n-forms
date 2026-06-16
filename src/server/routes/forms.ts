@@ -9,10 +9,14 @@
  */
 
 import { Hono } from "hono";
-import { resolveFormConfig, PUBLIC_BASE_URL } from "../config.ts";
+import {
+  resolveFormConfig,
+  PUBLIC_BASE_URL,
+  SHOW_EXAMPLE_FORMS,
+} from "../config.ts";
 import { createSession, updateSession } from "../db.ts";
 import { postToN8n, parseTimeout } from "../n8n.ts";
-import { getForms, toPublicForms } from "../forms-loader.ts";
+import { getForms, toPublicForms, filterVisible } from "../forms-loader.ts";
 
 const forms = new Hono();
 
@@ -80,7 +84,15 @@ forms.post("/:slug/start", async (c) => {
 });
 
 // GET /api/forms — list runtime-loaded forms + any that failed validation.
+// Example forms are filtered out server-side when SHOW_EXAMPLE_FORMS is false.
 // FormSchema carries no secrets, so the full definitions are browser-safe.
-forms.get("/", (c) => c.json(toPublicForms(getForms())));
+forms.get("/", (c) => {
+  const {
+    forms: visible,
+    rejected,
+    exampleSlugs,
+  } = filterVisible(getForms(), SHOW_EXAMPLE_FORMS);
+  return c.json(toPublicForms({ forms: visible, rejected, exampleSlugs }));
+});
 
 export default forms;

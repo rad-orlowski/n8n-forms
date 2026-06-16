@@ -34,7 +34,12 @@ export interface RejectedForm {
 export interface LoadResult {
   forms: FormSchema[];
   rejected: RejectedForm[];
+  /** Slugs whose source path is under an `examples/` directory. */
+  exampleSlugs: string[];
 }
+
+/** Matches any path segment named `examples`. */
+const EXAMPLE_PATH_RE = /(^|[\\/])examples[\\/]/;
 
 /** Extensions this loader handles, mapped to a parse function. */
 const PARSERS: Record<string, (src: string) => unknown> = {
@@ -64,11 +69,11 @@ function collectFiles(dir: string): string[] {
 
 /**
  * Parse and validate every form file in `dir` (recursive).
- * Returns `{ forms, rejected }`. Never throws. Synchronous.
+ * Returns `{ forms, rejected, exampleSlugs }`. Never throws. Synchronous.
  */
 export function loadFormsFromDir(dir: string): LoadResult {
   if (!existsSync(dir) || !statSync(dir).isDirectory()) {
-    return { forms: [], rejected: [] };
+    return { forms: [], rejected: [], exampleSlugs: [] };
   }
 
   const files = collectFiles(dir);
@@ -76,6 +81,8 @@ export function loadFormsFromDir(dir: string): LoadResult {
   // --- parse + validate each file ---
   const valid: Array<{ file: string; form: FormSchema }> = [];
   const rejected: RejectedForm[] = [];
+  // Track whether each slug came from an examples/ subdirectory.
+  const exampleBySlug = new Map<string, boolean>();
 
   for (const file of files) {
     const ext = extname(file) as keyof typeof PARSERS;
@@ -105,21 +112,31 @@ export function loadFormsFromDir(dir: string): LoadResult {
       continue;
     }
 
+    // Derive relative path from the root dir for example detection.
+    const rel = file.slice(dir.length);
+    exampleBySlug.set(result.data.slug, EXAMPLE_PATH_RE.test(rel));
     valid.push({ file, form: result.data });
   }
 
   // --- enforce unique slugs ---
-  return enforceUniqueSlugs(valid, rejected);
+  const deduped = enforceUniqueSlugs(valid, rejected);
+  return {
+    ...deduped,
+    exampleSlugs: deduped.forms
+      .filter((f) => exampleBySlug.get(f.slug))
+      .map((f) => f.slug),
+  };
 }
 
 /**
  * Move every entry whose slug appears more than once from `valid` into
- * `rejected`. Returns the updated `{ forms, rejected }`.
+ * `rejected`. Returns the deduplicated `{ forms, rejected }` — the caller
+ * is responsible for adding `exampleSlugs`.
  */
 function enforceUniqueSlugs(
   valid: Array<{ file: string; form: FormSchema }>,
   rejected: RejectedForm[],
-): LoadResult {
+): { forms: FormSchema[]; rejected: RejectedForm[] } {
   // Count occurrences of each slug across valid entries.
   const slugCount = new Map<string, number>();
   for (const { form } of valid) {
@@ -143,6 +160,18 @@ function enforceUniqueSlugs(
   }
 
   return { forms, rejected: [...rejected, ...extraRejected] };
+}
+
+/** Apply the SHOW_EXAMPLE_FORMS policy to a load result. */
+export function filterVisible(
+  result: LoadResult,
+  showExamples: boolean,
+): LoadResult {
+  if (showExamples) return result;
+  return {
+    ...result,
+    forms: result.forms.filter((f) => !result.exampleSlugs.includes(f.slug)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +207,7 @@ export function toPublicForms(result: LoadResult): LoadResult {
   return {
     forms: result.forms,
     rejected: result.rejected.map((r) => ({ ...r, file: basename(r.file) })),
+    exampleSlugs: result.exampleSlugs,
   };
 }
 
