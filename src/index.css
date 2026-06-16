@@ -200,6 +200,17 @@
       background   150ms ease;
   }
 
+  /* ── transcript timeline ────────────────────────────────────────────── */
+
+  .transcript { position: relative; padding-left: 22px; list-style: none; margin: 0; }
+  .transcript::before { content: ""; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 1px; background: hsl(var(--border)); }
+  .transcript-row { position: relative; padding-bottom: 16px; }
+  .transcript-row:last-child { padding-bottom: 0; }
+  .transcript-dot { position: absolute; left: -19px; top: 3px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid hsl(var(--background)); }
+  .transcript-dot.out { background: hsl(var(--primary)); }
+  .transcript-dot.in { background: hsl(var(--accent)); }
+  .transcript-dot.draft { background: transparent; border-color: hsl(var(--primary)); }
+
   /* ── prefers-reduced-motion guard ───────────────────────────────────── */
 
   @media (prefers-reduced-motion: reduce) {

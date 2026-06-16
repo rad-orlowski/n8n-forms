@@ -652,11 +652,11 @@ function resolveResponseValue(data: unknown, key: string): unknown {
 type ResolvedField = {
   key: string;
   label?: string;
-  format?: "heading" | "tags" | "list";
+  format?: "heading" | "tags" | "list" | "transcript" | "copy";
   prose?: boolean;
   section?: string;
   /** null means "empty but should still render as —" */
-  value: string | string[] | null;
+  value: string | string[] | Array<Record<string, string>> | null;
 };
 
 /** A contiguous run of resolved fields sharing the same `section`. */
@@ -671,9 +671,14 @@ type FieldGroup = {
  */
 function normaliseValue(
   raw: unknown,
-  format?: "heading" | "tags" | "list",
-): string | string[] | null {
+  format?: "heading" | "tags" | "list" | "transcript" | "copy",
+): string | string[] | Array<Record<string, string>> | null {
   if (raw === undefined || raw === null) return null;
+  if (format === "transcript") {
+    return Array.isArray(raw) && raw.length
+      ? (raw as Array<Record<string, string>>)
+      : null;
+  }
   if (Array.isArray(raw)) {
     const tags = raw.filter(Boolean).map(String);
     return tags.length ? tags : null;
@@ -690,6 +695,26 @@ function normaliseValue(
       .filter(Boolean);
   }
   return s;
+}
+
+function CopyBox({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative rounded-md border border-border bg-muted/30 p-3 text-sm leading-relaxed">
+      <button
+        type="button"
+        onClick={async () => {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className="label-tech absolute right-2 top-2 rounded border border-border px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+      >
+        {copied ? "✓ copied" : "copy"}
+      </button>
+      <span className="whitespace-pre-wrap break-words pr-12">{text}</span>
+    </div>
+  );
 }
 
 /**
@@ -817,15 +842,26 @@ function ResponseCell({ field }: { field: ResolvedField }) {
   const isEmpty = value === null;
   const isHeading = !isEmpty && format === "heading";
   const isList = !isEmpty && format === "list";
+  const isTranscript = !isEmpty && format === "transcript";
+  const isCopy = !isEmpty && format === "copy";
   const isTags =
     !isEmpty &&
     !isHeading &&
     !isList &&
+    !isTranscript &&
+    !isCopy &&
     (Array.isArray(value) || format === "tags");
   const isProse =
-    !isEmpty && !isHeading && !isTags && !isList && prose === true;
+    !isEmpty &&
+    !isHeading &&
+    !isTags &&
+    !isList &&
+    !isTranscript &&
+    !isCopy &&
+    prose === true;
 
-  const fullWidth = isHeading || isTags || isList || prose === true;
+  const fullWidth =
+    isHeading || isTags || isList || isTranscript || isCopy || prose === true;
 
   return (
     <div className={fullWidth ? "sm:col-span-2" : undefined}>
@@ -844,11 +880,11 @@ function ResponseCell({ field }: { field: ResolvedField }) {
         <dd className="flex flex-wrap gap-1.5">
           {(Array.isArray(value) ? value : [value]).map((tag) => (
             <Badge
-              key={tag}
+              key={String(tag)}
               variant="outline"
               className="border-primary/30 bg-primary/10 text-primary/90 font-mono text-[11px] font-medium"
             >
-              {tag}
+              {String(tag)}
             </Badge>
           ))}
         </dd>
@@ -857,7 +893,7 @@ function ResponseCell({ field }: { field: ResolvedField }) {
           <ul className="space-y-1.5">
             {(Array.isArray(value) ? value : [value]).map((item) => (
               <li
-                key={item}
+                key={String(item)}
                 className="flex items-start gap-2 text-sm text-foreground/90"
               >
                 <Badge
@@ -866,10 +902,51 @@ function ResponseCell({ field }: { field: ResolvedField }) {
                 >
                   <Check className="h-3 w-3" />
                 </Badge>
-                <span className="break-words leading-snug">{item}</span>
+                <span className="break-words leading-snug">{String(item)}</span>
               </li>
             ))}
           </ul>
+        </dd>
+      ) : isTranscript ? (
+        <dd>
+          <ol className="transcript">
+            {(value as Array<Record<string, string>>)
+              .filter((m) => m.status !== "superseded")
+              .map((m, i) => {
+                const dir =
+                  m.direction === "inbound"
+                    ? "in"
+                    : m.status === "draft"
+                      ? "draft"
+                      : "out";
+                const who =
+                  dir === "in"
+                    ? "← recruiter"
+                    : dir === "draft"
+                      ? "draft"
+                      : "→ you";
+                const meta = [who, m.channel, m.status, m.ts]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <li key={i} className="transcript-row">
+                    <span className={`transcript-dot ${dir}`} aria-hidden />
+                    <div>
+                      <div className="label-tech text-[10px] mb-0.5 text-muted-foreground">
+                        {meta}
+                      </div>
+                      <div className="text-sm text-foreground/90 break-words leading-snug">
+                        {m.body}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+          </ol>
+        </dd>
+      ) : isCopy ? (
+        <dd>
+          <CopyBox text={String(value)} />
         </dd>
       ) : (
         <dd
@@ -885,3 +962,5 @@ function ResponseCell({ field }: { field: ResolvedField }) {
     </div>
   );
 }
+
+export { ResponsePanel as ResponsePanelForTest };
