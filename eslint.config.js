@@ -10,6 +10,7 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'coverage',
+    'docs/**',
     'src/components/tiptap-*/**',
     'src/components/ui/**',
     'src/hooks/**',
