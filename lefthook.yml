@@ -6,7 +6,10 @@ pre-commit:
       run: bun run lint {staged_files}
     format:
       glob: "*.{ts,tsx,json,css,scss}"
-      run: bun biome format --write {staged_files}
+      # --no-errors-on-unmatched: biome exits 1 when every passed path is ignored
+      # (e.g. a commit touching only biome-ignored forms/form.schema.json), which would
+      # abort the whole commit. This silences that empty-set error.
+      run: bun biome format --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
     typecheck:
       run: bun tsc -b --noEmit

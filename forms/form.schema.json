@@ -228,7 +228,9 @@
                 "enum": [
                   "heading",
                   "tags",
-                  "list"
+                  "list",
+                  "transcript",
+                  "copy"
                 ]
               },
               "prose": {
