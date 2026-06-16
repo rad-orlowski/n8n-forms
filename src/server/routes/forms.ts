@@ -9,9 +9,14 @@
  */
 
 import { Hono } from "hono";
-import { resolveFormConfig, PUBLIC_BASE_URL } from "../config.ts";
+import {
+  resolveFormConfig,
+  PUBLIC_BASE_URL,
+  SHOW_EXAMPLE_FORMS,
+} from "../config.ts";
 import { createSession, updateSession } from "../db.ts";
-import { postToN8n } from "../n8n.ts";
+import { postToN8n, parseTimeout } from "../n8n.ts";
+import { getForms, toPublicForms, filterVisible } from "../forms-loader.ts";
 
 const forms = new Hono();
 
@@ -23,16 +28,27 @@ forms.post("/:slug/start", async (c) => {
     return c.json({ error: "Form not configured" }, 404);
   }
 
-  // Parse request body for answers
+  // Parse request body for answers (and optional resumeUrlPath / method)
   let answers: unknown;
+  let resumeUrlPath: string | undefined;
+  let method: "GET" | "POST" = "POST";
+  let timeout: number | false | undefined;
   try {
     const body = await c.req.json();
-    answers = (body as Record<string, unknown>).answers ?? body;
+    const b = body as Record<string, unknown>;
+    answers = b.answers ?? body;
+    resumeUrlPath =
+      typeof b.resumeUrlPath === "string" ? b.resumeUrlPath : undefined;
+    if (b.method === "GET") method = "GET";
+    timeout = parseTimeout(b.timeoutMs);
   } catch {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  // Mint a new session
+  // Mint a new session. NOTE: the row is created before the n8n call, so a
+  // failed start (catch below) leaves an orphan row. This is acceptable — the
+  // 30-min idle TTL GC in db.ts reaps it, and a no-resumeUrl/not-done row can't
+  // be stepped. We accept the orphan rather than add rollback complexity.
   const sessionId = crypto.randomUUID();
   createSession({ sessionId, formSlug: slug });
 
@@ -41,7 +57,11 @@ forms.post("/:slug/start", async (c) => {
   // POST to n8n webhook
   let result;
   try {
-    result = await postToN8n(cfg.webhookUrl, { answers, sessionId, callbackUrl });
+    result = await postToN8n(
+      cfg.webhookUrl,
+      { answers, sessionId, callbackUrl },
+      { resumeUrlPath, method, timeout },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return c.json({ error: `Failed to reach n8n: ${message}` }, 502);
@@ -64,6 +84,14 @@ forms.post("/:slug/start", async (c) => {
   });
 
   return c.json({ sessionId, data: result.data, done: result.done });
+});
+
+// GET /api/forms — list runtime-loaded forms + any that failed validation.
+// Example forms are filtered out server-side when SHOW_EXAMPLE_FORMS is false.
+// FormSchema carries no secrets, so the full definitions are browser-safe.
+forms.get("/", (c) => {
+  const filtered = filterVisible(getForms(), SHOW_EXAMPLE_FORMS);
+  return c.json(toPublicForms(filtered));
 });
 
 export default forms;

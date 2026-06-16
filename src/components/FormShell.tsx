@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { get } from "es-toolkit/compat";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,19 +33,20 @@ import {
 } from "@/components/ui/form";
 import { FIELD_REGISTRY, STATIC_FIELD_REGISTRY } from "@/components/fields";
 import { StepDataContext } from "@/components/StepDataContext";
+import { SelectedItemsContext } from "@/components/SelectedItemsContext";
 import {
   buildZodSchema,
   defaultValues,
   isStaticField,
+  resolveTimeoutMs,
   type FieldDef,
   type FormSchema,
   type ResponseConfig,
 } from "@/lib/schema";
-import {
-  openEventStream,
-  startForm,
-  stepForm,
-} from "@/lib/submit";
+import { resolveVisibleFields } from "@/lib/resolve-fields";
+import { expressionVariables } from "@/lib/expr";
+import { resolveIcon } from "@/lib/icons";
+import { openEventStream, startForm, stepForm } from "@/lib/submit";
 
 // ── response panel defaults ────────────────────────────────────────────────────
 
@@ -49,35 +57,52 @@ const DEFAULT_TITLE = "Response";
 // ── wizard state ─────────────────────────────────────────────────────────────
 
 type WizardPhase =
-  | { kind: "form" }           // filling out the active page
-  | { kind: "pending" }        // waiting for SSE callback
+  | { kind: "form" } // filling out the active page
+  | { kind: "pending" } // waiting for SSE callback
   | { kind: "error"; message: string; status: number }
   | { kind: "done"; data: unknown };
 
+// Warn once per unknown field type. FieldDef.type is an open string at runtime
+// (forms are data, not code), so a typo like `type: "emil"` has no compile-time
+// guard — without this it would silently fall through to a text input (or render
+// nothing for a static slot). Deduped so a repeated type warns only once.
+const warnedFieldTypes = new Set<string>();
+function warnUnknownFieldType(type: string, kind: "input" | "static") {
+  if (warnedFieldTypes.has(type)) return;
+  warnedFieldTypes.add(type);
+  console.warn(
+    `[forms] unknown ${kind} field type "${type}" — ${
+      kind === "input"
+        ? "falling back to a text input."
+        : "nothing will render."
+    }`,
+  );
+}
+
 // ── main component ────────────────────────────────────────────────────────────
 
-export function FormShell({
-  schema,
-}: {
-  schema: FormSchema;
-}) {
+export function FormShell({ schema }: { schema: FormSchema }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   // stepData is the `data` payload from the BFF for the *current* page.
   // It starts null (page 0 has no n8n data yet), then is set after each step.
   const [stepData, setStepData] = useState<unknown>(null);
   const [phase, setPhase] = useState<WizardPhase>({ kind: "form" });
+  // selectedItems holds the full raw n8n object for each select field on the
+  // active page; used by sibling fields that declare valueFromField.
+  const [selectedItems, setSelectedItems] = useState<Record<string, unknown>>(
+    {},
+  );
+  const setItem = useCallback(
+    (name: string, raw: unknown) =>
+      setSelectedItems((p) => ({ ...p, [name]: raw })),
+    [],
+  );
 
   const page = schema.pages[currentPage];
 
-  // Pre-compute per-page zod schema and default values from this page's fields.
+  // Pre-compute per-page default values from this page's fields.
   // valueFrom pre-fills fields whose values come from n8n step data.
-  const zodSchema = useMemo(
-    () => buildZodSchema(page.fields),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentPage, page.fields],
-  );
-
   const resolvedDefaults = useMemo(() => {
     const base = defaultValues(page.fields);
     // Apply valueFrom bindings for pages ≥ 1 that have stepData available
@@ -93,15 +118,87 @@ export function FormShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, stepData]);
 
+  // Ref-backed schema so RHF's resolver always validates against the current
+  // set of visible/required fields (RHF captures the resolver at init and
+  // won't re-read it on re-render; the ref bridges that gap).
+  const schemaRef = useRef(buildZodSchema(page.fields));
+
   const form = useForm({
-    resolver: zodResolver(zodSchema),
+    resolver: (values, ctx, opts) =>
+      zodResolver(schemaRef.current)(values, ctx, opts),
     defaultValues: resolvedDefaults,
     mode: "onTouched",
   });
 
-  // Reset the RHF instance whenever the page advances.
+  // Field names referenced by any visibleIf/requiredIf on this page. We narrow
+  // form.watch to just these so typing in a field no condition depends on does
+  // not re-render the whole shell (the prior `form.watch()` watched everything).
+  const conditionDeps = useMemo(() => {
+    const names = new Set<string>();
+    for (const f of page.fields) {
+      for (const key of ["visibleIf", "requiredIf"] as const) {
+        const expr = f[key];
+        if (expr) for (const v of expressionVariables(expr)) names.add(v);
+      }
+    }
+    return [...names];
+  }, [page.fields]);
+
+  // Values of only the condition-referenced fields. Empty array when the page
+  // has no conditional fields → no per-keystroke re-render at all.
+  const watchedDeps = form.watch(conditionDeps);
+  const watchScope = useMemo(() => {
+    const scope: Record<string, unknown> = {};
+    conditionDeps.forEach((name, i) => {
+      scope[name] = watchedDeps[i];
+    });
+    return scope;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conditionDeps, JSON.stringify(watchedDeps)]);
+
+  // Recompute visible/required fields whenever a referenced value changes.
+  // (page.fields identity changes per page, so currentPage isn't a dep.)
+  const resolvedFields = useMemo(
+    () => resolveVisibleFields(page.fields, watchScope),
+    [page.fields, watchScope],
+  );
+  // Keep the resolver's schema in sync with the resolved (visible) fields.
+  // Assigning a memoized value to a ref during render is intentional and safe
+  // here: it's deterministic, and the resolver closure reads schemaRef.current
+  // at validation time (never during render), so there's no tearing.
+  schemaRef.current = useMemo(
+    () => buildZodSchema(resolvedFields),
+    [resolvedFields],
+  );
+
+  // Names of the input fields currently visible on this page.
+  const visibleInputNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of resolvedFields) {
+      if (!isStaticField(f) && f.name) set.add(f.name);
+    }
+    return set;
+  }, [resolvedFields]);
+
+  // Strip values of fields hidden by `visibleIf` out of the RHF store so
+  // form.handleSubmit never delivers them to n8n. resolveVisibleFields only
+  // narrows rendering + Zod validation; without this the last value of a field
+  // hidden for the current branch would still be submitted. A field shown again
+  // re-registers from defaults via its FormField.
+  useEffect(() => {
+    for (const f of page.fields) {
+      if (isStaticField(f) || !f.name) continue;
+      if (!visibleInputNames.has(f.name)) form.unregister(f.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleInputNames, currentPage]);
+
+  // Reset the RHF instance and selected-item context whenever the page advances.
   useEffect(() => {
     form.reset(resolvedDefaults);
+    // Intentional: clear selected raw items when navigating to a new page so a
+    // prior page's selection can't leak into a sibling field's valueFromField.
+    setSelectedItems({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
@@ -109,58 +206,55 @@ export function FormShell({
 
   // ── SSE handling ────────────────────────────────────────────────────────────
 
-  const handleSse = useCallback(
-    (sid: string) => {
-      setPhase({ kind: "pending" });
-      const es = openEventStream(sid);
+  const handleSse = useCallback((sid: string) => {
+    setPhase({ kind: "pending" });
+    const es = openEventStream(sid);
 
-      es.addEventListener("step", (e: MessageEvent) => {
-        try {
-          const payload = JSON.parse(e.data as string) as {
-            data: unknown;
-            done: boolean;
-            workflowError?: boolean;
-            errorMessage?: string;
-          };
-          es.close();
-          // Workflow-level business error: n8n signalled __error: true.
-          if (payload.workflowError) {
-            setPhase({
-              kind: "error",
-              message: payload.errorMessage ?? "The workflow reported an error.",
-              status: 0,
-            });
-            return;
-          }
-          if (payload.done) {
-            setStepData(payload.data);
-            setPhase({ kind: "done", data: payload.data });
-          } else {
-            setStepData(payload.data);
-            setCurrentPage((p) => p + 1);
-            setPhase({ kind: "form" });
-          }
-        } catch {
-          es.close();
+    es.addEventListener("step", (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data as string) as {
+          data: unknown;
+          done: boolean;
+          workflowError?: boolean;
+          errorMessage?: string;
+        };
+        es.close();
+        // Workflow-level business error: n8n signalled __error: true.
+        if (payload.workflowError) {
           setPhase({
             kind: "error",
-            message: "Received malformed data from the server.",
+            message: payload.errorMessage ?? "The workflow reported an error.",
             status: 0,
           });
+          return;
         }
-      });
-
-      es.onerror = () => {
+        if (payload.done) {
+          setStepData(payload.data);
+          setPhase({ kind: "done", data: payload.data });
+        } else {
+          setStepData(payload.data);
+          setCurrentPage((p) => p + 1);
+          setPhase({ kind: "form" });
+        }
+      } catch {
         es.close();
         setPhase({
           kind: "error",
-          message: "Lost connection to the server while waiting for a response.",
+          message: "Received malformed data from the server.",
           status: 0,
         });
-      };
-    },
-    [],
-  );
+      }
+    });
+
+    es.onerror = () => {
+      es.close();
+      setPhase({
+        kind: "error",
+        message: "Lost connection to the server while waiting for a response.",
+        status: 0,
+      });
+    };
+  }, []);
 
   // ── submit handler ──────────────────────────────────────────────────────────
 
@@ -169,7 +263,13 @@ export function FormShell({
 
     if (currentPage === 0) {
       // First page — kick off a new n8n execution
-      const res = await startForm(schema.slug, values);
+      const res = await startForm(
+        schema.slug,
+        values,
+        page.resumeUrlPath,
+        page.method,
+        resolveTimeoutMs(schema, page),
+      );
 
       if ("ok" in res) {
         // BffError
@@ -200,7 +300,13 @@ export function FormShell({
         return;
       }
 
-      const res = await stepForm(sessionId, values);
+      const res = await stepForm(
+        sessionId,
+        values,
+        page.resumeUrlPath,
+        page.method,
+        resolveTimeoutMs(schema, page),
+      );
 
       if ("ok" in res) {
         setPhase({ kind: "error", message: res.message, status: res.status });
@@ -281,10 +387,7 @@ export function FormShell({
           ) : null}
 
           {schema.response && phase.data !== undefined && (
-            <ResponsePanel
-              responseConfig={schema.response}
-              data={phase.data}
-            />
+            <ResponsePanel responseConfig={schema.response} data={phase.data} />
           )}
 
           <div className="text-center">
@@ -353,6 +456,7 @@ export function FormShell({
   // ── form (active page) state ──────────────────────────────────────────────────
 
   const pageCount = schema.pages.length;
+  const HeaderIcon = resolveIcon(schema.icon);
 
   return (
     <section className="animate-rise">
@@ -368,9 +472,10 @@ export function FormShell({
           )}
         </p>
         <div className="mt-2 flex items-center gap-3">
-          {schema.icon && (
-            <schema.icon className="h-8 w-8 shrink-0 text-primary opacity-80" />
-          )}
+          {HeaderIcon &&
+            createElement(HeaderIcon, {
+              className: "h-8 w-8 shrink-0 text-primary opacity-80",
+            })}
           <h1 className="text-3xl font-bold md:text-4xl">{schema.title}</h1>
         </div>
         {/* Page-level title (if different from form title) */}
@@ -389,57 +494,66 @@ export function FormShell({
 
       {/* Provide step data to all field components so optionsFrom / valueFrom can resolve */}
       <StepDataContext.Provider value={stepData}>
-        <Form {...form}>
-          <form
-            ref={formRef}
-            // eslint-disable-next-line react-hooks/refs -- onInvalidSubmit reads formRef.current only when invoked as a submit handler, not during render
-            onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
-            className="mt-6 space-y-6"
-          >
-            {page.fields.map((def, i) => {
-              if (isStaticField(def)) {
-                const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
-                if (!StaticComponent) return null;
+        {/* Provide raw selected items so valueFromField can reactively prefill siblings */}
+        <SelectedItemsContext.Provider
+          value={{ items: selectedItems, setItem }}
+        >
+          <Form {...form}>
+            <form
+              ref={formRef}
+              onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
+              className="mt-6 space-y-6"
+            >
+              {resolvedFields.map((def, i) => {
+                if (isStaticField(def)) {
+                  const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
+                  if (!StaticComponent) {
+                    warnUnknownFieldType(def.type, "static");
+                    return null;
+                  }
+                  return (
+                    <StaticComponent
+                      key={def.name ?? `__static_${i}`}
+                      def={def}
+                    />
+                  );
+                }
                 return (
-                  <StaticComponent
-                    key={def.name ?? `__static_${i}`}
-                    def={def}
+                  <FormField
+                    key={def.name ?? `__input_${i}`}
+                    control={form.control}
+                    name={def.name ?? `__input_${i}`}
+                    render={({ field }) => <FieldRow def={def} field={field} />}
                   />
                 );
-              }
-              return (
-                <FormField
-                  key={def.name ?? `__input_${i}`}
-                  control={form.control}
-                  name={def.name ?? `__input_${i}`}
-                  render={({ field }) => <FieldRow def={def} field={field} />}
-                />
-              );
-            })}
+              })}
 
-            <div className="flex items-center justify-between gap-4 pt-2">
-              {/* Start over is always available once a session exists */}
-              {sessionId ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="font-mono text-xs text-muted-foreground"
-                  onClick={startOver}
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Start over
+              <div className="flex items-center justify-between gap-4 pt-2">
+                {/* Start over is always available once a session exists */}
+                {sessionId ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="font-mono text-xs text-muted-foreground"
+                    onClick={startOver}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                    Start over
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <Button type="submit" className="min-w-36">
+                  <Send className="mr-2 h-4 w-4" />
+                  {page.submitLabel ??
+                    schema.submitLabel ??
+                    (currentPage < pageCount - 1 ? "Next" : "Submit")}
                 </Button>
-              ) : (
-                <span />
-              )}
-              <Button type="submit" className="min-w-36">
-                <Send className="mr-2 h-4 w-4" />
-                {schema.submitLabel ?? (currentPage < pageCount - 1 ? "Next" : "Submit")}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              </div>
+            </form>
+          </Form>
+        </SelectedItemsContext.Provider>
       </StepDataContext.Provider>
     </section>
   );
@@ -456,6 +570,7 @@ function FieldRow({
     NonNullable<React.ComponentProps<typeof FormField>["render"]>
   >[0]["field"];
 }) {
+  if (!FIELD_REGISTRY[def.type]) warnUnknownFieldType(def.type, "input");
   const Component = FIELD_REGISTRY[def.type] ?? FIELD_REGISTRY.text;
   const required = def.required ? (
     <span className="ml-1 text-primary">*</span>
@@ -526,7 +641,8 @@ function BackLink() {
 function resolveResponseValue(data: unknown, key: string): unknown {
   const root = Array.isArray(data) && data.length === 1 ? data[0] : data;
   let v = get(root as object, key);
-  if (v === undefined && key.startsWith("0.")) v = get(root as object, key.slice(2));
+  if (v === undefined && key.startsWith("0."))
+    v = get(root as object, key.slice(2));
   if (v === undefined) v = get(data as object, key);
   return v;
 }
@@ -568,7 +684,10 @@ function normaliseValue(
   if (!s) return null;
   // Explicit tags/list format on a plain string → split by comma
   if (format === "tags" || format === "list") {
-    return s.split(",").map((t) => t.trim()).filter(Boolean);
+    return s
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
   }
   return s;
 }
@@ -699,8 +818,12 @@ function ResponseCell({ field }: { field: ResolvedField }) {
   const isHeading = !isEmpty && format === "heading";
   const isList = !isEmpty && format === "list";
   const isTags =
-    !isEmpty && !isHeading && !isList && (Array.isArray(value) || format === "tags");
-  const isProse = !isEmpty && !isHeading && !isTags && !isList && prose === true;
+    !isEmpty &&
+    !isHeading &&
+    !isList &&
+    (Array.isArray(value) || format === "tags");
+  const isProse =
+    !isEmpty && !isHeading && !isTags && !isList && prose === true;
 
   const fullWidth = isHeading || isTags || isList || prose === true;
 

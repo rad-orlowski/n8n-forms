@@ -1,6 +1,18 @@
 import ky, { HTTPError, TimeoutError } from "ky";
+import { DEFAULT_TIMEOUT_MS } from "./schema";
 
 // ── shared types ────────────────────────────────────────────────────────────
+
+/**
+ * Map a form/page timeout to ky's `timeout` option. `"indefinite"` → `false`
+ * (ky disables its AbortController), a number passes through, and an unset
+ * value falls back to the shared default so the client never times out earlier
+ * than the BFF's own n8n call.
+ */
+function kyTimeout(timeoutMs?: number | "indefinite"): number | false {
+  if (timeoutMs === "indefinite") return false;
+  return timeoutMs ?? DEFAULT_TIMEOUT_MS;
+}
 
 /**
  * Returned by startForm() when n8n replied synchronously (no SSE needed).
@@ -49,7 +61,7 @@ async function extractError(err: unknown): Promise<BffError> {
   if (err instanceof HTTPError) {
     let message = `HTTP ${err.response.status}`;
     try {
-      const body = await err.response.json() as Record<string, unknown>;
+      const body = (await err.response.json()) as Record<string, unknown>;
       if (typeof body.error === "string") message = body.error;
     } catch {
       // non-JSON error body — keep the status line
@@ -80,14 +92,22 @@ async function extractError(err: unknown): Promise<BffError> {
 export async function startForm(
   slug: string,
   answers: Record<string, unknown>,
+  resumeUrlPath?: string,
+  method?: "GET" | "POST",
+  timeoutMs?: number | "indefinite",
 ): Promise<StartResponse> {
   try {
     const res = await ky.post(`/api/forms/${slug}/start`, {
-      json: { answers },
-      timeout: 15000,
+      json: {
+        answers,
+        ...(resumeUrlPath ? { resumeUrlPath } : {}),
+        ...(method ? { method } : {}),
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      },
+      timeout: kyTimeout(timeoutMs),
     });
 
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
 
     if (body.pending === true) {
       return { sessionId: body.sessionId as string, pending: true };
@@ -110,14 +130,22 @@ export async function startForm(
 export async function stepForm(
   sessionId: string,
   answers: Record<string, unknown>,
+  resumeUrlPath?: string,
+  method?: "GET" | "POST",
+  timeoutMs?: number | "indefinite",
 ): Promise<StepResponse> {
   try {
     const res = await ky.post(`/api/sessions/${sessionId}/step`, {
-      json: { answers },
-      timeout: 15000,
+      json: {
+        answers,
+        ...(resumeUrlPath ? { resumeUrlPath } : {}),
+        ...(method ? { method } : {}),
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      },
+      timeout: kyTimeout(timeoutMs),
     });
 
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
 
     if (body.pending === true) {
       return { pending: true };

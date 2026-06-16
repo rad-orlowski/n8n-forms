@@ -2,6 +2,7 @@
  * src/server/index.ts — Hono BFF entry point.
  *
  * Route layout:
+ *   GET  /api/config                  → client-readable runtime config
  *   POST /api/forms/:slug/start       → routes/forms.ts
  *   POST /api/sessions/:id/step       → routes/sessions.ts
  *   GET  /api/sessions/:id/events     → routes/sessions.ts
@@ -16,7 +17,7 @@
 import { existsSync } from "node:fs";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
-import { PORT } from "./config.ts";
+import { PORT, SHOW_EXAMPLE_FORMS } from "./config.ts";
 import formsRouter from "./routes/forms.ts";
 import sessionsRouter from "./routes/sessions.ts";
 import { callbackHandler } from "./routes/callback.ts";
@@ -26,6 +27,10 @@ const app = new Hono();
 // ---------------------------------------------------------------------------
 // API routes
 // ---------------------------------------------------------------------------
+
+// GET /api/config — non-secret runtime config the SPA reads on load. Holds no
+// webhook URLs or secrets; only display toggles resolved from server env.
+app.get("/api/config", (c) => c.json({ showExampleForms: SHOW_EXAMPLE_FORMS }));
 
 app.route("/api/forms", formsRouter);
 app.route("/api/sessions", sessionsRouter);
@@ -55,7 +60,7 @@ if (DIST_EXISTS) {
       `<!DOCTYPE html><html><body>` +
         `<p>SPA not built yet. Run <code>bun run build</code> then restart the server.</p>` +
         `</body></html>`,
-      503
+      503,
     );
   });
 }

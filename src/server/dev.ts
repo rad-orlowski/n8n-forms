@@ -12,12 +12,13 @@
  */
 
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch } from "node:fs";
 import { resolve } from "node:path";
 import { createServer as createVite } from "vite";
 import { getRequestListener } from "@hono/node-server";
 import { app } from "./index.ts";
-import { PORT } from "./config.ts";
+import { FORMS_DIR, PORT } from "./config.ts";
+import { reloadForms } from "./forms-loader.ts";
 
 const honoListener = getRequestListener(app.fetch);
 
@@ -63,3 +64,13 @@ httpServer.on("request", (req, res) => {
 httpServer.listen(PORT, () => {
   console.log(`Dev server: http://localhost:${PORT}`);
 });
+
+// Dev-only: re-validate forms when a definition changes — no restart needed.
+if (existsSync(FORMS_DIR)) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  watch(FORMS_DIR, { recursive: true }, () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => reloadForms(), 150);
+  });
+  console.log(`[forms] watching ${FORMS_DIR} for changes (dev)`);
+}

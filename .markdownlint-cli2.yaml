@@ -11,6 +11,9 @@ globs:
   # CLAUDE.md is a gitignored developer-facing prompt file, not public docs.
   - "!CLAUDE.md"
   - "!**/CLAUDE.md"
+  # docs/ holds design notes, ADRs, and other working docs (some gitignored,
+  # local-only) — not linted; their formatting is not part of the build.
+  - "!docs/**"
 
 config:
   default: true

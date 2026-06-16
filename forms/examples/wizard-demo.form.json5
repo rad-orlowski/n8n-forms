@@ -1,6 +1,4 @@
-import { Wand2 } from "lucide-react";
-import { defineForm } from "@/lib/schema";
-
+// $schema: ../form.schema.json
 // Multi-page wizard demo. Demonstrates the dynamic-field binding path:
 // - Page 0: static fields only (no n8n data yet)
 // - Page 1: a select whose options are injected by n8n via optionsFrom
@@ -10,9 +8,9 @@ import { defineForm } from "@/lib/schema";
 //   { options: [{ label, value }, ...] } — the list of available choices
 //   for the category-specific field on page 1.
 // - Page 1 submit resumes the execution via resumeUrl with { choice }.
-export default defineForm({
+{
   slug: "wizard-demo",
-  icon: Wand2,
+  icon: "Wand2",
   title: "Wizard Demo",
   description: "Two-page form: page 1 loads its options from n8n at runtime.",
   submitLabel: "Continue",
@@ -75,4 +73,4 @@ export default defineForm({
       { key: "executionId", label: "Execution ID" },
     ],
   },
-});
+}

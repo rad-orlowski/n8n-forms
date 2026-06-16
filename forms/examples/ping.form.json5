@@ -1,16 +1,20 @@
-import { Radio } from "lucide-react";
-import { defineForm } from "@/lib/schema";
-
-export default defineForm({
+// $schema: ../form.schema.json
+{
   slug: "ping",
-  icon: Radio,
+  icon: "Radio",
   title: "Ping",
   description: "Smoke test — proves the form → n8n webhook pipe works.",
   submitLabel: "Send ping",
   pages: [
     {
       fields: [
-        { type: "text", name: "message", label: "Message", placeholder: "hello n8n", required: true },
+        {
+          type: "text",
+          name: "message",
+          label: "Message",
+          placeholder: "hello n8n",
+          required: true,
+        },
       ],
     },
   ],
@@ -26,4 +30,4 @@ export default defineForm({
       { key: "headers.x-real-ip", label: "Client IP" },
     ],
   },
-});
+}

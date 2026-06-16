@@ -15,7 +15,7 @@ SSE, and dynamic field values fed back from n8n at runtime.
 
 ## How it works
 
-1. Each form is defined as a TypeScript file (`forms/<slug>.form.ts`) using
+1. Each form is defined as a data file (`forms/<slug>.form.json5`) using
    `pages: PageDef[]`.
 2. `bun run build` produces the SPA in `dist/`; `bun start` serves it via
    the BFF.
@@ -38,7 +38,8 @@ SSE, and dynamic field values fed back from n8n at runtime.
 
 > The forms above ship as runnable examples in
 > [`forms/examples/`](forms/examples) — copy one as a starting point for your
-> own.
+> own. To hide every example from the console without deleting them, set
+> `SHOW_EXAMPLE_FORMS=false` in `.env` (default is `true`).
 
 ---
 
@@ -95,7 +96,7 @@ docker compose up    # builds the image and starts the server
 
 ```text
 .
-├── forms/                  # one *.form.ts per form (auto-discovered, recursively)
+├── forms/                  # one *.form.json5 per form (auto-discovered, recursively)
 │   └── examples/           # runnable example forms (contact, feedback, event-rsvp)
 ├── src/
 │   ├── server/             # Hono BFF server
@@ -126,19 +127,21 @@ docker compose up    # builds the image and starts the server
 
 ## Adding a form
 
-The app auto-discovers every `*.form.ts` under the `forms/` directory (including
-subfolders like `forms/examples/`) via `import.meta.glob` — no manual registration
-is needed. Just create the file, add the env keys, and restart the dev server.
+The BFF loader discovers every `*.form.json5` (and `.form.yaml`/`.form.yml`) under
+the `forms/` directory (including subfolders like `forms/examples/`) at runtime.
+The SPA fetches the list via `GET /api/forms` — no build-time glob, no manual
+registration needed. Just create the file, add the env keys, and restart the
+dev server.
 
-1. **Create** `forms/<slug>.form.ts`:
+1. **Create** `forms/<slug>.form.json5`:
 
-   ```ts
-   import { defineForm } from "@/lib/schema";
-
-   export default defineForm({
+   ```json5
+   // $schema: ./form.schema.json
+   {
      slug: "my-form",
      title: "My Form",
      submitLabel: "Send",
+     timeoutMs: 30000,                           // sync-reply wait (ms); "indefinite" = no timeout; per-page override available
      response: { header: { message: "Done!" } }, // success line (optional)
      pages: [
        {
@@ -149,7 +152,7 @@ is needed. Just create the file, add the env keys, and restart the dev server.
          ],
        },
      ],
-   });
+   }
    ```
 
 2. **Add the env keys** to `.env` and `.env.example`:
@@ -161,10 +164,16 @@ is needed. Just create the file, add the env keys, and restart the dev server.
 
 The full form schema is the source of truth in
 [`src/lib/schema.ts`](src/lib/schema.ts). See
-[`forms/ping.form.ts`](forms/ping.form.ts) for a minimal working example,
-[`forms/wizard-demo.form.ts`](forms/wizard-demo.form.ts) for multi-page +
-dynamic fields, or [`forms/examples/`](forms/examples) for fuller single-page
-forms.
+[`forms/examples/ping.form.json5`](forms/examples/ping.form.json5) for a minimal
+working example, [`forms/examples/wizard-demo.form.json5`](forms/examples/wizard-demo.form.json5)
+for multi-page + dynamic fields, or [`forms/examples/`](forms/examples) for
+fuller single-page forms.
+
+> **Examples vs. your own forms.** Any form under `forms/examples/` is treated
+> as an example and is hidden from the console when `SHOW_EXAMPLE_FORMS=false`.
+> Keep your own forms at the top level of `forms/` so they always show. The BFF
+> filters examples server-side and only returns them in `GET /api/forms` when
+> `SHOW_EXAMPLE_FORMS` is enabled (no secrets in that response).
 
 ### Rendering the workflow response
 
@@ -197,19 +206,40 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 
 ---
 
+## Available forms
+
+<!-- docs FORMS_LIST -->
+| Slug | Title | Source |
+| --- | --- | --- |
+| `contact` | Contact Us | [`forms/examples/contact.form.json5`](forms/examples/contact.form.json5) |
+| `event-rsvp` | Event RSVP | [`forms/examples/event-rsvp.form.json5`](forms/examples/event-rsvp.form.json5) |
+| `feedback` | Share Feedback | [`forms/examples/feedback.form.json5`](forms/examples/feedback.form.json5) |
+| `ping` | Ping | [`forms/examples/ping.form.json5`](forms/examples/ping.form.json5) |
+| `wizard-demo` | Wizard Demo | [`forms/examples/wizard-demo.form.json5`](forms/examples/wizard-demo.form.json5) |
+<!-- /docs -->
+
+---
+
 ## Available field types
 
-| `type` | Component | Notes |
+<!-- docs FIELD_TYPES -->
+| `type` | Kind | Notes |
 | --- | --- | --- |
-| `text` | `<Input>` | |
-| `email` | `<Input type=email>` | |
-| `textarea` | `<Textarea>` | |
-| `number` | `<Input type=number>` | supports `min` / `max` |
-| `select` | shadcn `<Select>` | requires `options: [{label, value}]` |
-| `checkbox` | shadcn `<Checkbox>` | sends boolean |
-| `date` | shadcn `<Calendar>` | sends ISO date string |
-| `rating` | Star rating | `max` defaults to 5, sends number |
-| `richtext` | TipTap editor | sends HTML; debounced ~250 ms, flushes on blur — **see note below** |
+| `text` | input | |
+| `email` | input | |
+| `url` | input | |
+| `textarea` | input | |
+| `number` | input | supports `min` / `max` |
+| `select` | input | requires `options: [{label, value}]` |
+| `checkbox` | input | sends boolean |
+| `date` | input | sends ISO date string |
+| `rating` | input | `max` defaults to 5, sends number |
+| `richtext` | input | TipTap editor — sends HTML; debounced ~250 ms, flushes on blur |
+| `heading` | static | display only — no payload value |
+| `description` | static | display only — no payload value |
+| `image` | static | display only — no payload value |
+| `alert` | static | display only — no payload value |
+<!-- /docs -->
 
 > **Rich-text field — HTML output:** The `richtext` field submits TipTap's
 > HTML to the webhook. The form renders response data as plain text only (no
@@ -219,7 +249,7 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 
 To add a custom field type: build a component accepting `{ field, def }: FieldComponentProps`,
 then register it in `FIELD_REGISTRY` in [`src/components/fields/index.ts`](src/components/fields/index.ts).
-Use the new `type` string in any `*.form.ts`.
+Use the new `type` string in any `*.form.json5`.
 
 ---
 
@@ -244,14 +274,24 @@ integration guide.
 
 ## Commands
 
+<!-- docs PACKAGE_SCRIPTS -->
 | Command | Description |
 | --- | --- |
-| `bun dev` | Single dev server: BFF + Vite middleware at `http://localhost:3737` (HMR included) |
+| `bun run build` | Compile TypeScript + bundle SPA → `dist/` |
+| `bun run dev` | Single dev server: Hono BFF + Vite middleware at `http://localhost:3737` (HMR included) |
 | `bun run dev:vite` | Vite standalone at `http://localhost:5173` (SPA only, no BFF) |
-| `bun run build` | `tsc -b && vite build` → `dist/` |
-| `bun start` | Serve `dist/` + `/api/*` via BFF (production) |
-| `bun run lint` | ESLint |
-| `docker compose up` | Build image + start BFF in Docker |
+| `bun run docs:generate` | Regenerate autogenerated sections in all markdown files |
+| `bun run lint` | Run ESLint across all source files |
+| `bun run preview` | Preview the Vite production build locally |
+| `bun run schema:generate` | `bun scripts/generate-form-schema.ts` |
+| `bun run start` | Serve `dist/` + `/api/*` via the Hono BFF (production) |
+| `bun run test` | Run the full suite: Vitest (UI + pure lib) then `bun test` (Bun-runtime server files) |
+| `bun run test:coverage` | Run both suites with coverage + thresholds (Vitest V8, then `bun test`) |
+| `bun run test:server` | Run only the Bun-runtime server specs (`*.bun.test.ts`) via `bun test` |
+| `bun run test:watch` | Run Vitest in watch mode |
+<!-- /docs -->
+
+Or with Docker: `docker compose up`
 
 ---
 

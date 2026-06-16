@@ -1,11 +1,9 @@
-import { Mail } from "lucide-react";
-import { defineForm } from "@/lib/schema";
-
+// $schema: ../form.schema.json
 // Example form (committed, public). Real forms set the webhook server-side via
 // WEBHOOK_CONTACT in the server's env. The matching placeholder lives in .env.example.
-export default defineForm({
+{
   slug: "contact",
-  icon: Mail,
+  icon: "Mail",
   title: "Contact Us",
   description: "Drop us a line and we'll get back to you.",
   submitLabel: "Send message",
@@ -13,8 +11,20 @@ export default defineForm({
   pages: [
     {
       fields: [
-        { type: "text", name: "name", label: "Your name", placeholder: "Ada Lovelace", required: true },
-        { type: "email", name: "email", label: "Email", placeholder: "ada@example.com", required: true },
+        {
+          type: "text",
+          name: "name",
+          label: "Your name",
+          placeholder: "Ada Lovelace",
+          required: true,
+        },
+        {
+          type: "email",
+          name: "email",
+          label: "Email",
+          placeholder: "ada@example.com",
+          required: true,
+        },
         {
           type: "select",
           name: "topic",
@@ -34,8 +44,12 @@ export default defineForm({
           placeholder: "How can we help?",
           required: true,
         },
-        { type: "checkbox", name: "subscribe", label: "Subscribe me to the monthly newsletter" },
+        {
+          type: "checkbox",
+          name: "subscribe",
+          label: "Subscribe me to the monthly newsletter",
+        },
       ],
     },
   ],
-});
+}

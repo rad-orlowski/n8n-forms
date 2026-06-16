@@ -24,9 +24,9 @@ mistaking expected behavior for a vulnerability:
   `null` (`file://`) origin. This means any website can POST to your webhooks.
   Mitigate inside each n8n workflow with payload validation, rate limiting, and
   monitoring. Keep webhook URLs secret.
-- **The source code and `forms/*.form.ts` definitions are safe to publish** as
-  long as they contain no literal URLs — always reference webhooks via
-  `import.meta.env.VITE_WEBHOOK_*`.
+- **The source code and `forms/*.form.json5` definitions are safe to publish** —
+  they contain no webhook URLs (those live only in `.env`, read server-side at
+  runtime).
 
 See the **CORS & security implications** and **inlined secrets** sections of the
 [README](./README.md) for the full picture.

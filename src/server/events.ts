@@ -26,6 +26,11 @@ type SsePushFn = (event: SseEvent) => void;
 
 const subscribers = new Map<string, SsePushFn>();
 
+/** True when a session currently has a registered SSE subscriber. */
+export function hasSubscriber(sessionId: string): boolean {
+  return subscribers.has(sessionId);
+}
+
 /** Register a push function for a session.  Returns an unsubscribe handle. */
 export function subscribe(sessionId: string, push: SsePushFn): () => void {
   subscribers.set(sessionId, push);

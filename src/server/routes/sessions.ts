@@ -15,7 +15,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { getSession, updateSession } from "../db.ts";
-import { postToN8n } from "../n8n.ts";
+import { postToN8n, parseTimeout } from "../n8n.ts";
 import { subscribe, type SseEvent } from "../events.ts";
 import { PUBLIC_BASE_URL } from "../config.ts";
 
@@ -39,9 +39,17 @@ sessions.post("/:id/step", async (c) => {
   }
 
   let answers: unknown;
+  let resumeUrlPath: string | undefined;
+  let method: "GET" | "POST" = "POST";
+  let timeout: number | false | undefined;
   try {
     const body = await c.req.json();
-    answers = (body as Record<string, unknown>).answers ?? body;
+    const b = body as Record<string, unknown>;
+    answers = b.answers ?? body;
+    resumeUrlPath =
+      typeof b.resumeUrlPath === "string" ? b.resumeUrlPath : undefined;
+    if (b.method === "GET") method = "GET";
+    timeout = parseTimeout(b.timeoutMs);
   } catch {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
@@ -50,7 +58,11 @@ sessions.post("/:id/step", async (c) => {
 
   let result;
   try {
-    result = await postToN8n(session.resumeUrl, { answers, sessionId, callbackUrl });
+    result = await postToN8n(
+      session.resumeUrl,
+      { answers, sessionId, callbackUrl },
+      { resumeUrlPath, method, timeout },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return c.json({ error: `Failed to reach n8n: ${message}` }, 502);
@@ -124,17 +136,19 @@ sessions.get("/:id/events", (c) => {
     // Await a live push from the callback handler
     await new Promise<void>((resolve) => {
       const push = (event: SseEvent) => {
-        stream.writeSSE({
-          event: "step",
-          data: JSON.stringify({
-            data: event.data,
-            done: event.done,
-            ...(event.workflowError && {
-              workflowError: true,
-              errorMessage: event.errorMessage,
-            }),
-          } satisfies StepEventPayload),
-        }).finally(resolve);
+        stream
+          .writeSSE({
+            event: "step",
+            data: JSON.stringify({
+              data: event.data,
+              done: event.done,
+              ...(event.workflowError && {
+                workflowError: true,
+                errorMessage: event.errorMessage,
+              }),
+            } satisfies StepEventPayload),
+          })
+          .finally(resolve);
       };
 
       const unsubscribe = subscribe(sessionId, push);

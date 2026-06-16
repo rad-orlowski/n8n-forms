@@ -9,14 +9,19 @@ import type { FieldComponentProps } from "@/lib/schema";
  * This is the worked reference for adding your own controls:
  *   1. Build a component with the { field, def } contract.
  *   2. Register its `type` string in src/components/fields/index.ts.
- *   3. Use { type: "rating", name, ... } in any *.form.ts file.
+ *   3. Use { type: "rating", name, ... } in any *.form.json5 file.
  */
 export function RatingField({ field, def }: FieldComponentProps) {
   const max = def.max ?? 5;
   const value = Number(field.value) || 0;
 
   return (
-    <div className="flex items-center gap-1" onBlur={field.onBlur}>
+    <div
+      role="group"
+      aria-label={def.label ?? "Rating"}
+      className="flex items-center gap-1"
+      onBlur={field.onBlur}
+    >
       {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
         <button
           key={n}

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { FormShell } from "@/components/FormShell";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
-import { forms, getForm } from "@/forms/index";
+import { useForms, type RejectedForm } from "@/forms/client";
+import { resolveIcon } from "@/lib/icons";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
@@ -41,11 +42,33 @@ function totalFieldCount(form: FormSchema): number {
   return form.pages.reduce((sum, p) => sum + p.fields.length, 0);
 }
 
+// ── rejected banner ───────────────────────────────────────────────────────────
+
+function RejectedBanner({ rejected }: { rejected: RejectedForm[] }) {
+  if (rejected.length === 0) return null;
+  return (
+    <div className="mb-6 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 animate-rise">
+      <p className="label-tech text-destructive mb-2">
+        ⚠ {rejected.length} form{rejected.length !== 1 ? "s" : ""} failed to
+        load
+      </p>
+      <ul className="space-y-1 text-xs text-muted-foreground">
+        {rejected.map((r, i) => (
+          <li key={`${r.file}-${i}`}>
+            <code className="font-mono">{r.file}</code>: {r.errors.join("; ")}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ── console index ──────────────────────────────────────────────────────────────
 
 function FormCard({ form, index }: { form: FormSchema; index: number }) {
   const fieldCount = totalFieldCount(form);
   const pageCount = form.pages.length;
+  const FormIcon = resolveIcon(form.icon);
 
   return (
     <a
@@ -71,9 +94,10 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
         />
 
         <div className="flex items-center gap-2.5 mb-1">
-          {form.icon && (
-            <form.icon className="h-4 w-4 shrink-0 text-primary opacity-80" />
-          )}
+          {FormIcon &&
+            createElement(FormIcon, {
+              className: "h-4 w-4 shrink-0 text-primary opacity-80",
+            })}
           <h2 className="font-display text-lg font-semibold text-card-foreground leading-tight">
             {form.title}
           </h2>
@@ -92,9 +116,7 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
           {pageCount > 1 && (
             <>
               <span className="text-border select-none">·</span>
-              <span>
-                {pageCount} steps
-              </span>
+              <span>{pageCount} steps</span>
             </>
           )}
         </div>
@@ -103,15 +125,20 @@ function FormCard({ form, index }: { form: FormSchema; index: number }) {
   );
 }
 
-function ConsoleIndex() {
+function ConsoleIndex({
+  forms,
+  rejected,
+}: {
+  forms: FormSchema[];
+  rejected: RejectedForm[];
+}) {
   return (
     <div className="animate-rise">
+      <RejectedBanner rejected={rejected} />
       {/* page header */}
       <div className="mb-8">
         <p className="label-tech mb-3">n8n · webhook console</p>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">
-          Form console
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Form console</h1>
         <p className="text-muted-foreground text-sm">
           Select a form to trigger its n8n automation workflow.
         </p>
@@ -156,14 +183,17 @@ function UnknownForm({ slug }: { slug: string }) {
 
 export default function App() {
   const slug = useHashRoute();
-  const form = slug ? getForm(slug) : undefined;
+  const { forms, rejected, loading } = useForms();
+  const form = slug ? forms.find((f) => f.slug === slug) : undefined;
 
   return (
     <>
       <ThemeSwitcher />
       <div className="mx-auto w-full max-w-2xl px-5 py-12 md:py-16">
-        {slug === "" ? (
-          <ConsoleIndex />
+        {loading ? (
+          <p className="label-tech animate-rise">loading…</p>
+        ) : slug === "" ? (
+          <ConsoleIndex forms={forms} rejected={rejected} />
         ) : form ? (
           // key by slug so navigating between forms remounts FormShell with
           // fresh wizard state (phase/session/answers) instead of leaking the

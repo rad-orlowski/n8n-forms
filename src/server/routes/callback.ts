@@ -13,6 +13,13 @@
  * sessionId correlation: when the BFF calls n8n it passes
  *   callbackUrl = `${PUBLIC_BASE_URL}/api/callback/${sessionId}`
  * n8n must POST to that URL when the step completes — the :id IS the sessionId.
+ *
+ * SECURITY (tracked follow-up, intentionally out of this PR's scope): this
+ * endpoint has no shared secret — authenticity rests entirely on the 122-bit
+ * random sessionId in the path. Hardening would mint a CALLBACK_SECRET into the
+ * callbackUrl as a bearer header and verify it here. Deferred deliberately; see
+ * the PR review thread for #3. Do NOT widen the resumeUrl/outbound surface
+ * without adding that check.
  */
 
 import type { Context } from "hono";
@@ -39,9 +46,9 @@ export async function callbackHandler(c: Context): Promise<Response> {
   // Strip the sentinel keys so they never reach the browser as raw data.
   const workflowError = body.__error === true;
   const errorMessage = workflowError
-    ? (typeof body.message === "string" && body.message.trim()
-        ? body.message.trim()
-        : "The workflow reported an error.")
+    ? typeof body.message === "string" && body.message.trim()
+      ? body.message.trim()
+      : "The workflow reported an error."
     : undefined;
 
   const data = workflowError ? null : (body.data ?? null);
@@ -60,7 +67,13 @@ export async function callbackHandler(c: Context): Promise<Response> {
 
   // Push to any connected SSE subscriber; if none connected, the data is
   // buffered in DB and will be replayed when the browser reconnects.
-  publish(sessionId, { data, resumeUrl, done, workflowError: workflowError || undefined, errorMessage });
+  publish(sessionId, {
+    data,
+    resumeUrl,
+    done,
+    workflowError: workflowError || undefined,
+    errorMessage,
+  });
 
   return new Response(null, { status: 204 });
 }
