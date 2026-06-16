@@ -22,6 +22,7 @@ import { extname, join } from "node:path";
 import JSON5 from "json5";
 import { parse as parseYaml } from "yaml";
 import { FormSchema } from "../lib/schema.ts";
+import { FORMS_DIR } from "./config.ts";
 
 export interface RejectedForm {
   /** Absolute path of the file that was rejected. */
@@ -139,4 +140,32 @@ function enforceUniqueSlugs(
   }
 
   return { forms, rejected: [...rejected, ...extraRejected] };
+}
+
+// ---------------------------------------------------------------------------
+// Cache accessor
+// ---------------------------------------------------------------------------
+
+let cache: LoadResult | null = null;
+
+/** Re-read + validate `dir` (default FORMS_DIR), update the cache, log a summary. */
+export function reloadForms(dir: string = FORMS_DIR): LoadResult {
+  const result = loadFormsFromDir(dir);
+  cache = result;
+  logSummary(result);
+  return result;
+}
+
+/** Return the cached result, loading once on first access. */
+export function getForms(): LoadResult {
+  return cache ?? reloadForms();
+}
+
+function logSummary(result: LoadResult): void {
+  for (const r of result.rejected) {
+    console.error(`[forms] rejected ${r.file}:\n  ${r.errors.join("\n  ")}`);
+  }
+  console.log(
+    `[forms] loaded ${result.forms.length} valid, ${result.rejected.length} rejected`,
+  );
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadFormsFromDir } from "./forms-loader.ts";
+import { loadFormsFromDir, getForms, reloadForms } from "./forms-loader.ts";
 
 /** Minimal valid form payload as a JS object. */
 function validForm(slug: string) {
@@ -121,5 +121,18 @@ describe("loadFormsFromDir", () => {
     expect(rejected).toEqual([]);
     expect(forms).toHaveLength(1);
     expect(forms[0].slug).toBe("contact");
+  });
+});
+
+describe("cache accessor", () => {
+  it("reloadForms(dir) refreshes the cached result", () => {
+    write("a.form.json5", `{ slug: "a", title: "A", pages: [{ fields: [] }] }`);
+    const first = reloadForms(dir);
+    expect(first.forms.map((f) => f.slug)).toEqual(["a"]);
+    write("c.form.json5", `{ slug: "c", title: "C", pages: [{ fields: [] }] }`);
+    const second = reloadForms(dir);
+    expect(second.forms.map((f) => f.slug).sort()).toEqual(["a", "c"]);
+    // getForms() returns the last loaded result without re-reading
+    expect(getForms()).toBe(second);
   });
 });
