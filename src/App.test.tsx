@@ -27,7 +27,8 @@ function stub(forms: unknown[], rejected: unknown[] = []) {
     vi.fn(async (url: string) => {
       if (String(url).includes("/api/forms"))
         return { ok: true, json: async () => ({ forms, rejected }) };
-      return { ok: true, json: async () => ({ showExampleForms: true }) };
+      // App only fetches /api/forms; catch-all for safety
+      return { ok: true, json: async () => ({}) };
     }),
   );
 }

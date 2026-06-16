@@ -15,7 +15,7 @@ SSE, and dynamic field values fed back from n8n at runtime.
 
 ## How it works
 
-1. Each form is defined as a TypeScript file (`forms/<slug>.form.ts`) using
+1. Each form is defined as a data file (`forms/<slug>.form.json5`) using
    `pages: PageDef[]`.
 2. `bun run build` produces the SPA in `dist/`; `bun start` serves it via
    the BFF.
@@ -96,7 +96,7 @@ docker compose up    # builds the image and starts the server
 
 ```text
 .
-├── forms/                  # one *.form.ts per form (auto-discovered, recursively)
+├── forms/                  # one *.form.json5 per form (auto-discovered, recursively)
 │   └── examples/           # runnable example forms (contact, feedback, event-rsvp)
 ├── src/
 │   ├── server/             # Hono BFF server
@@ -127,16 +127,17 @@ docker compose up    # builds the image and starts the server
 
 ## Adding a form
 
-The app auto-discovers every `*.form.ts` under the `forms/` directory (including
-subfolders like `forms/examples/`) via `import.meta.glob` — no manual registration
-is needed. Just create the file, add the env keys, and restart the dev server.
+The BFF loader discovers every `*.form.json5` (and `.form.yaml`/`.form.yml`) under
+the `forms/` directory (including subfolders like `forms/examples/`) at runtime.
+The SPA fetches the list via `GET /api/forms` — no build-time glob, no manual
+registration needed. Just create the file, add the env keys, and restart the
+dev server.
 
-1. **Create** `forms/<slug>.form.ts`:
+1. **Create** `forms/<slug>.form.json5`:
 
-   ```ts
-   import { defineForm } from "@/lib/schema";
-
-   export default defineForm({
+   ```json5
+   // $schema: ./form.schema.json
+   {
      slug: "my-form",
      title: "My Form",
      submitLabel: "Send",
@@ -151,7 +152,7 @@ is needed. Just create the file, add the env keys, and restart the dev server.
          ],
        },
      ],
-   });
+   }
    ```
 
 2. **Add the env keys** to `.env` and `.env.example`:
@@ -163,16 +164,16 @@ is needed. Just create the file, add the env keys, and restart the dev server.
 
 The full form schema is the source of truth in
 [`src/lib/schema.ts`](src/lib/schema.ts). See
-[`forms/examples/ping.form.ts`](forms/examples/ping.form.ts) for a minimal
-working example, [`forms/examples/wizard-demo.form.ts`](forms/examples/wizard-demo.form.ts)
+[`forms/examples/ping.form.json5`](forms/examples/ping.form.json5) for a minimal
+working example, [`forms/examples/wizard-demo.form.json5`](forms/examples/wizard-demo.form.json5)
 for multi-page + dynamic fields, or [`forms/examples/`](forms/examples) for
 fuller single-page forms.
 
 > **Examples vs. your own forms.** Any form under `forms/examples/` is treated
 > as an example and is hidden from the console when `SHOW_EXAMPLE_FORMS=false`.
-> Keep your own forms at the top level of `forms/` so they always show. The SPA
-> reads this flag at load time from `GET /api/config` (no secrets in that
-> response).
+> Keep your own forms at the top level of `forms/` so they always show. The BFF
+> filters examples server-side and only returns them in `GET /api/forms` when
+> `SHOW_EXAMPLE_FORMS` is enabled (no secrets in that response).
 
 ### Rendering the workflow response
 
@@ -210,11 +211,11 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 <!-- docs FORMS_LIST -->
 | Slug | Title | Source |
 | --- | --- | --- |
-| `contact` | Contact Us | [`forms/examples/contact.form.ts`](forms/examples/contact.form.ts) |
-| `event-rsvp` | Event RSVP | [`forms/examples/event-rsvp.form.ts`](forms/examples/event-rsvp.form.ts) |
-| `feedback` | Share Feedback | [`forms/examples/feedback.form.ts`](forms/examples/feedback.form.ts) |
-| `ping` | Ping | [`forms/examples/ping.form.ts`](forms/examples/ping.form.ts) |
-| `wizard-demo` | Wizard Demo | [`forms/examples/wizard-demo.form.ts`](forms/examples/wizard-demo.form.ts) |
+| `contact` | Contact Us | [`forms/examples/contact.form.json5`](forms/examples/contact.form.json5) |
+| `event-rsvp` | Event RSVP | [`forms/examples/event-rsvp.form.json5`](forms/examples/event-rsvp.form.json5) |
+| `feedback` | Share Feedback | [`forms/examples/feedback.form.json5`](forms/examples/feedback.form.json5) |
+| `ping` | Ping | [`forms/examples/ping.form.json5`](forms/examples/ping.form.json5) |
+| `wizard-demo` | Wizard Demo | [`forms/examples/wizard-demo.form.json5`](forms/examples/wizard-demo.form.json5) |
 <!-- /docs -->
 
 ---
@@ -248,7 +249,7 @@ bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
 
 To add a custom field type: build a component accepting `{ field, def }: FieldComponentProps`,
 then register it in `FIELD_REGISTRY` in [`src/components/fields/index.ts`](src/components/fields/index.ts).
-Use the new `type` string in any `*.form.ts`.
+Use the new `type` string in any `*.form.json5`.
 
 ---
 

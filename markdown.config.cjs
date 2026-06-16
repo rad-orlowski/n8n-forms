@@ -142,7 +142,7 @@ module.exports = {
     },
 
     /**
-     * Auto-generate a table of forms discovered in forms/**\/*.form.ts.
+     * Auto-generate a table of forms discovered in forms/**\/*.form.json5 (and .yaml/.yml).
      * Only includes git-tracked files so private/gitignored forms never appear.
      * Extracts `slug` and `title` from each file via regex.
      *
@@ -152,14 +152,15 @@ module.exports = {
      */
     FORMS_LIST(api) {
       const { execSync } = require('child_process')
+      const FORM_DATA_RE = /\.form\.(json5|ya?ml)$/
       let formFiles
       try {
         // Only list git-tracked files — gitignored personal forms are excluded automatically
         const out = execSync('git ls-files -- forms/', { cwd: ROOT, encoding: 'utf8' })
-        formFiles = out.trim().split('\n').filter((f) => f.endsWith('.form.ts'))
+        formFiles = out.trim().split('\n').filter((f) => FORM_DATA_RE.test(f))
       } catch {
         // Fallback for non-git environments
-        formFiles = collectFiles(path.join(ROOT, 'forms'), /\.form\.ts$/)
+        formFiles = collectFiles(path.join(ROOT, 'forms'), FORM_DATA_RE)
       }
 
       const forms = formFiles
@@ -167,7 +168,7 @@ module.exports = {
           const src = fs.readFileSync(path.join(ROOT, file), 'utf8')
           const slugM = src.match(/slug:\s*["']([^"']+)["']/)
           const titleM = src.match(/title:\s*["']([^"']+)["']/)
-          const slug = slugM?.[1] ?? path.basename(file, '.form.ts')
+          const slug = slugM?.[1] ?? path.basename(file).replace(FORM_DATA_RE, '')
           const title = titleM?.[1] ?? slug
           return { slug, title, file }
         })

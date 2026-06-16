@@ -33,21 +33,23 @@ pass locally first.
 
 ## Adding a form
 
-1. Create `forms/<slug>.form.ts` exporting `defineForm({ ... })`.
-2. Set `webhook: import.meta.env.VITE_WEBHOOK_<YOUR_KEY>` and add the key to
-   both `.env` and `.env.example` (use a placeholder value in `.env.example`).
+1. Create `forms/<slug>.form.json5` — a data file starting with
+   `// $schema: ./form.schema.json` followed by the form object literal
+   (unquoted keys, JSON5 comments allowed, no `defineForm` wrapper).
+2. Add `WEBHOOK_<SLUG>` to both `.env` and `.env.example`
+   (use a placeholder value in `.env.example`).
 
-The app auto-discovers every top-level `forms/*.form.ts` via `import.meta.glob`
-— there is **no** manual registration step.
+The BFF loader discovers forms at runtime; the SPA fetches them via
+`GET /api/forms` — there is **no** manual registration step and no build-time glob.
 
-The form schema is defined in `src/lib/schema.ts`; `forms/ping.form.ts` is a minimal
-working example.
+The form schema is defined in `src/lib/schema.ts`; `forms/examples/ping.form.json5`
+is a minimal working example.
 
 ## Adding a field type
 
 1. Build a React component accepting `{ field, def }: FieldComponentProps`.
 2. Add one entry to `FIELD_REGISTRY` in `src/components/fields/index.ts`.
-3. Use the new `type` string in any `*.form.ts`.
+3. Use the new `type` string in any `*.form.json5`.
 
 The `FieldComponentProps` contract lives in `src/lib/schema.ts`; existing field
 components in `src/components/fields/` are the best reference.
