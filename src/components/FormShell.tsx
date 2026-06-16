@@ -120,6 +120,9 @@ export function FormShell({ schema }: { schema: FormSchema }) {
     [currentPage, page.fields, JSON.stringify(watched)],
   );
   // Keep the resolver's schema in sync with the resolved (visible) fields.
+  // Assigning a memoized value to a ref during render is intentional and safe
+  // here: it's deterministic, and the resolver closure reads schemaRef.current
+  // at validation time (never during render), so there's no tearing.
   schemaRef.current = useMemo(
     () => buildZodSchema(resolvedFields),
     [resolvedFields],

@@ -1,3 +1,4 @@
+// Component test — run via `vitest` (jsdom env), not `bun test` (no DOM).
 import { describe, it, expect } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { FormShell } from "./FormShell";

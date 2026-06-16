@@ -2,11 +2,14 @@ import { Parser, type Values } from "expr-eval";
 
 const parser = new Parser();
 
-// Built-in functions (random, etc.) are intentionally disabled.
-// Form visibility/required conditions must be pure, deterministic comparisons
-// against field values — no side-effectful or non-deterministic built-ins.
-// All entries are removed from parser.functions so any call like random()
-// fails at evaluation time (evaluateCondition catches → returns safe false).
+// expr-eval's built-in *functions* (random, etc.) are intentionally disabled:
+// every entry is removed from parser.functions, so a call like random() fails
+// at evaluation time (evaluateCondition catches → returns safe false; and the
+// validation dry-run below surfaces it at load time). The key motivation is
+// random() — a non-deterministic call would make a field flicker in/out across
+// renders. expr-eval's deterministic unary math ops (abs, floor, sin, …) live
+// in parser.unaryOps, not parser.functions, so they remain available; they are
+// pure and side-effect-free, so an expression like "abs(delta) > 5" is fine.
 Object.keys(parser.functions).forEach((k) => {
   delete (parser.functions as Record<string, unknown>)[k];
 });
