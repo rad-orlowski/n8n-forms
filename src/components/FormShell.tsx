@@ -675,9 +675,24 @@ function normaliseValue(
 ): string | string[] | Array<Record<string, string>> | null {
   if (raw === undefined || raw === null) return null;
   if (format === "transcript") {
-    return Array.isArray(raw) && raw.length
-      ? (raw as Array<Record<string, string>>)
-      : null;
+    if (!Array.isArray(raw)) return null;
+    // Drop superseded messages here so an all-superseded transcript normalises
+    // to null (→ "—") instead of rendering an empty <ol> with a stray timeline bar.
+    const messages = (raw as Array<Record<string, string>>).filter(
+      (m) => m.status !== "superseded",
+    );
+    return messages.length ? messages : null;
+  }
+  if (format === "copy") {
+    // Copy surfaces a single copyable string; coerce arrays/objects explicitly
+    // so an array value doesn't silently comma-join via String([]).
+    if (Array.isArray(raw)) {
+      const joined = raw.filter(Boolean).map(String).join("\n");
+      return joined ? joined : null;
+    }
+    if (typeof raw === "object") return JSON.stringify(raw, null, 2);
+    const s = String(raw).trim();
+    return s ? s : null;
   }
   if (Array.isArray(raw)) {
     const tags = raw.filter(Boolean).map(String);
@@ -699,18 +714,27 @@ function normaliseValue(
 
 function CopyBox({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <div className="relative rounded-md border border-border bg-muted/30 p-3 text-sm leading-relaxed">
       <button
         type="button"
         onClick={async () => {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
+          // `navigator.clipboard` is undefined in non-secure contexts and
+          // writeText rejects on permission denial — guard so the button shows
+          // a failure state instead of dropping an unhandled promise rejection.
+          try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch {
+            setFailed(true);
+            setTimeout(() => setFailed(false), 2000);
+          }
         }}
         className="label-tech absolute right-2 top-2 rounded border border-border px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
       >
-        {copied ? "✓ copied" : "copy"}
+        {copied ? "✓ copied" : failed ? "copy failed" : "copy"}
       </button>
       <span className="whitespace-pre-wrap break-words pr-12">{text}</span>
     </div>
@@ -910,38 +934,36 @@ function ResponseCell({ field }: { field: ResolvedField }) {
       ) : isTranscript ? (
         <dd>
           <ol className="transcript">
-            {(value as Array<Record<string, string>>)
-              .filter((m) => m.status !== "superseded")
-              .map((m, i) => {
-                const dir =
-                  m.direction === "inbound"
-                    ? "in"
-                    : m.status === "draft"
-                      ? "draft"
-                      : "out";
-                const who =
-                  dir === "in"
-                    ? "← recruiter"
-                    : dir === "draft"
-                      ? "draft"
-                      : "→ you";
-                const meta = [who, m.channel, m.status, m.ts]
-                  .filter(Boolean)
-                  .join(" · ");
-                return (
-                  <li key={m.ts ?? i} className="transcript-row">
-                    <span className={`transcript-dot ${dir}`} aria-hidden />
-                    <div>
-                      <div className="label-tech text-[10px] mb-0.5 text-muted-foreground">
-                        {meta}
-                      </div>
-                      <div className="text-sm text-foreground/90 break-words leading-snug">
-                        {m.body}
-                      </div>
+            {(value as Array<Record<string, string>>).map((m, i) => {
+              const dir =
+                m.direction === "inbound"
+                  ? "in"
+                  : m.status === "draft"
+                    ? "draft"
+                    : "out";
+              const who =
+                dir === "in"
+                  ? "← recruiter"
+                  : dir === "draft"
+                    ? "draft"
+                    : "→ you";
+              const meta = [who, m.channel, m.status, m.ts]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <li key={m.ts ?? i} className="transcript-row">
+                  <span className={`transcript-dot ${dir}`} aria-hidden />
+                  <div>
+                    <div className="label-tech text-[10px] mb-0.5 text-muted-foreground">
+                      {meta}
                     </div>
-                  </li>
-                );
-              })}
+                    <div className="text-sm text-foreground/90 break-words leading-snug">
+                      {m.body}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         </dd>
       ) : isCopy ? (
