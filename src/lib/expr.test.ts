@@ -35,4 +35,14 @@ describe("validateExpressionSyntax", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.length).toBeGreaterThan(0);
   });
+  it("rejects random() — built-in functions are disabled", () => {
+    // Built-in functions are intentionally disabled to prevent non-deterministic
+    // or side-effectful visibility conditions in form definitions.
+    const r = validateExpressionSyntax("random() > 0.5");
+    expect(r.ok).toBe(false);
+  });
+  it("returns false for random() in evaluateCondition — safe default", () => {
+    // Whether it fails at parse or evaluate time, evaluateCondition must return false.
+    expect(evaluateCondition("random() > 0.5", {})).toBe(false);
+  });
 });

@@ -30,4 +30,21 @@ describe("resolveVisibleFields", () => {
     );
     expect(out[0].required).toBe(true);
   });
+  it("requiredIf governs over static required: false when condition is falsey", () => {
+    // A field with BOTH required:true AND requiredIf:"<falsey condition>" should
+    // resolve to required:false — requiredIf result overrides the static flag.
+    // This documents the intended precedence: requiredIf always wins.
+    const out = resolveVisibleFields(
+      [
+        {
+          type: "text",
+          name: "notes",
+          required: true,
+          requiredIf: "flag == 'yes'",
+        },
+      ],
+      { flag: "no" },
+    );
+    expect(out[0].required).toBe(false);
+  });
 });

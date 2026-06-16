@@ -31,6 +31,8 @@ export default defineConfig({
         "src/lib/utils.ts",
         "src/lib/schema.ts",
         "src/lib/submit.ts",
+        "src/lib/expr.ts",
+        "src/lib/resolve-fields.ts",
         "src/server/config.ts",
         "src/server/events.ts",
         "src/server/n8n.ts",
