@@ -66,7 +66,6 @@ export const ResponseFieldSchema = z.object({
   section: z.string().optional(),
   hideIfEmpty: z.boolean().optional(),
 });
-export type ResponseField = z.infer<typeof ResponseFieldSchema>;
 
 export const ResponseHeaderSchema = z.object({
   style: z.enum(["compact", "full", "none"]).optional(),
@@ -74,7 +73,6 @@ export const ResponseHeaderSchema = z.object({
   message: z.string().optional(),
   title: z.string().optional(),
 });
-export type ResponseHeader = z.infer<typeof ResponseHeaderSchema>;
 
 export const ResponseConfigSchema = z.object({
   header: ResponseHeaderSchema.optional(),
