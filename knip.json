@@ -12,6 +12,6 @@
   "ignoreDependencies": [
     "@biomejs/biome",
     "@secretlint/secretlint-rule-preset-recommend",
-    "@testing-library/react"
+    "lefthook"
   ]
 }

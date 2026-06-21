@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-12T15:16:36Z",
+  "generated": "2026-06-21T14:40:50Z",
   "adrs": [
     {
       "id": "0002",
@@ -16,6 +16,22 @@
         "docs",
         "process",
         "contract"
+      ]
+    },
+    {
+      "id": "0010",
+      "title": "Keep the framework src/ domain-agnostic; register form-specific rendering",
+      "status": "accepted",
+      "file": "0010-framework-src-domain-agnostic.md",
+      "applies_to": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/components/table/**"
+      ],
+      "tags": [
+        "architecture",
+        "boundary",
+        "framework"
       ]
     }
   ]

@@ -31,9 +31,9 @@ function Harness() {
 
 /**
  * Harness that provides a real SelectedItemsContext backed by useState, and
- * exposes a `triggerSelect` button that calls setItem("oppId", rawItem). This
+ * exposes a `triggerSelect` button that calls setItem("itemId", rawItem). This
  * exercises the full chain:
- *   SelectedItemsContext.setItem → items["oppId"] changes →
+ *   SelectedItemsContext.setItem → items["itemId"] changes →
  *   useValueFromField fires field.onChange("<p>…</p>") →
  *   field.value changes →
  *   the mirror useEffect in RichTextField calls editor.commands.setContent →
@@ -60,7 +60,7 @@ function ValueFromFieldHarness() {
     <SelectedItemsContext.Provider value={ctxValue}>
       <button
         onClick={() =>
-          ctxValue.setItem("oppId", {
+          ctxValue.setItem("itemId", {
             draftText: "<p>Prefilled draft body</p>",
             title: "Acme",
           })
@@ -74,7 +74,7 @@ function ValueFromFieldHarness() {
           type: "richtext",
           name: "draft",
           label: "Cover letter",
-          valueFromField: "oppId.draftText",
+          valueFromField: "itemId.draftText",
         }}
       />
     </SelectedItemsContext.Provider>
@@ -130,13 +130,13 @@ describe("RichTextField reactive prefill", () => {
     render(<ValueFromFieldHarness />);
     expect(screen.queryByText("Prefilled draft body")).not.toBeInTheDocument();
 
-    // Simulate a sibling select choosing an opportunity
+    // Simulate a sibling select choosing an item
     await act(async () => {
       screen.getByText("choose opp").click();
     });
 
     // The full chain must have fired: context item changed →
-    // useValueFromField read "oppId.draftText" → called field.onChange →
+    // useValueFromField read "itemId.draftText" → called field.onChange →
     // field.value updated → mirror useEffect pushed content to TipTap
     await waitFor(() =>
       expect(screen.getByText("Prefilled draft body")).toBeInTheDocument(),

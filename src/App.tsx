@@ -6,33 +6,24 @@ import { cn } from "@/lib/utils";
 import type { FormSchema } from "@/lib/schema";
 import { useForms, type RejectedForm } from "@/forms/client";
 import { resolveIcon } from "@/lib/icons";
+import { parseHash, parseHashQuery } from "@/lib/hash";
 
 // ── hash router ────────────────────────────────────────────────────────────────
 
-/**
- * Returns the slug portion of the URL hash (the part after `#/`).
- *
- * Examples:
- *   #/contact  → "contact"
- *   #/ping     → "ping"
- *   #/         → ""
- */
-function parseHash(): string {
-  const hash = window.location.hash.replace(/^#\/?/, ""); // strip leading "#/"
-  const qIdx = hash.indexOf("?");
-  return qIdx === -1 ? hash : hash.slice(0, qIdx);
-}
-
-function useHashRoute(): string {
-  const [slug, setSlug] = useState(parseHash);
+function useHashRoute(): { slug: string; query: Record<string, string> } {
+  const [route, setRoute] = useState(() => ({
+    slug: parseHash(),
+    query: parseHashQuery(),
+  }));
 
   useEffect(() => {
-    const onHashChange = () => setSlug(parseHash());
+    const onHashChange = () =>
+      setRoute({ slug: parseHash(), query: parseHashQuery() });
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  return slug;
+  return route;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -182,14 +173,20 @@ function UnknownForm({ slug }: { slug: string }) {
 // ── app root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const slug = useHashRoute();
+  const { slug, query } = useHashRoute();
   const { forms, rejected, loading } = useForms();
   const form = slug ? forms.find((f) => f.slug === slug) : undefined;
+
+  // Table responses need real horizontal room (7+ columns); widen the shell for
+  // any form whose response renders a table, leaving scalar forms at reading width.
+  const wide = !!form?.response?.fields?.some((f) => f.format === "table");
 
   return (
     <>
       <ThemeSwitcher />
-      <div className="mx-auto w-full max-w-2xl px-5 py-12 md:py-16">
+      <div
+        className={`mx-auto w-full px-5 py-12 md:py-16 ${wide ? "max-w-6xl" : "max-w-2xl"}`}
+      >
         {loading ? (
           <p className="label-tech animate-rise">loading…</p>
         ) : slug === "" ? (
@@ -198,7 +195,7 @@ export default function App() {
           // key by slug so navigating between forms remounts FormShell with
           // fresh wizard state (phase/session/answers) instead of leaking the
           // previous form's "done" state.
-          <FormShell key={form.slug} schema={form} />
+          <FormShell key={form.slug} schema={form} queryParams={query} />
         ) : (
           <UnknownForm slug={slug} />
         )}

@@ -199,10 +199,12 @@ legacy `0.` prefix is still tolerated.
 The success header is configured via `response.header` (`style`: `compact`
 (default) / `full` / `none`; `heading`, `message`, `title`). The success
 line lives at `response.header.message` (there is no top-level
-`successMessage`). Per-field: `format` is `heading` / `tags` / `list`,
-`prose: true` renders sans body text, `section` groups fields into a
-bordered panel, and `hideIfEmpty` omits empty rows. Full reference:
-[`forms/CLAUDE.md`](forms/CLAUDE.md).
+`successMessage`). Per-field: `format` is `heading` / `tags` / `list` /
+`transcript` / `copy` / `table`, `prose: true` renders sans body text,
+`section` groups fields into a bordered panel, `hideIfEmpty` omits empty rows,
+and `format: "table"` declares a tabular response field (configure with
+`columns` and optional `expand`); the full sortable table renderer is in
+progress. Full reference: [`forms/CLAUDE.md`](forms/CLAUDE.md).
 
 ---
 

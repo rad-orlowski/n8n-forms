@@ -47,6 +47,12 @@ import { resolveVisibleFields } from "@/lib/resolve-fields";
 import { expressionVariables } from "@/lib/expr";
 import { resolveIcon } from "@/lib/icons";
 import { openEventStream, startForm, stepForm } from "@/lib/submit";
+import { TableRenderer } from "./table/TableRenderer";
+import type { Row } from "./table/registry";
+// Loads form-supplied table renderer extensions (registers cell/section
+// renderers by name) before any table renders. Generic — no domain knowledge.
+import "./table/extensions";
+import { Transcript, visibleMessages } from "./Transcript";
 
 // ── response panel defaults ────────────────────────────────────────────────────
 
@@ -81,13 +87,41 @@ function warnUnknownFieldType(type: string, kind: "input" | "static") {
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export function FormShell({ schema }: { schema: FormSchema }) {
+/**
+ * Resolves the set of valid option *values* for a dynamic select from n8n step
+ * data. Mirrors select-field.tsx's two modes (raw-object mapping via
+ * optionValue, or pre-shaped `[{label,value}]`). Used to guard prefillFromQuery
+ * so a stale value (e.g. an opp already acted on) is never silently preselected.
+ */
+function optionValuesFromStepData(stepData: unknown, def: FieldDef): string[] {
+  if (!def.optionsFrom || stepData === null) return [];
+  const arr = get(stepData as object, def.optionsFrom);
+  if (!Array.isArray(arr)) return [];
+  if (def.optionValue) {
+    return arr
+      .map((raw) => String(get(raw as object, def.optionValue!)))
+      .filter((v) => v !== "undefined" && v !== "null");
+  }
+  return arr
+    .map((o) => String((o as { value?: unknown })?.value))
+    .filter((v) => v !== "undefined" && v !== "null");
+}
+
+export function FormShell({
+  schema,
+  queryParams,
+}: {
+  schema: FormSchema;
+  queryParams?: Record<string, string>;
+}) {
   const [currentPage, setCurrentPage] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   // stepData is the `data` payload from the BFF for the *current* page.
   // It starts null (page 0 has no n8n data yet), then is set after each step.
   const [stepData, setStepData] = useState<unknown>(null);
   const [phase, setPhase] = useState<WizardPhase>({ kind: "form" });
+  const [refreshing, setRefreshing] = useState(false);
+  const isRefreshable = schema.pages.length === 1 && schema.pages[0].method === "GET";
   // selectedItems holds the full raw n8n object for each select field on the
   // active page; used by sibling fields that declare valueFromField.
   const [selectedItems, setSelectedItems] = useState<Record<string, unknown>>(
@@ -114,9 +148,42 @@ export function FormShell({ schema }: { schema: FormSchema }) {
         }
       }
     }
+    // Apply prefillFromQuery bindings: seed a field from a URL query param.
+    // For a dynamic select, only apply when the value matches a loaded option
+    // so a stale value is neither preselected nor submitted untouched.
+    if (queryParams) {
+      for (const f of page.fields) {
+        if (!f.prefillFromQuery || !f.name) continue;
+        const qv = queryParams[f.prefillFromQuery];
+        if (!qv) continue;
+        if (f.optionsFrom) {
+          if (stepData === null) continue;
+          if (!optionValuesFromStepData(stepData, f).includes(qv)) continue;
+        }
+        base[f.name] = qv;
+      }
+    }
     return base;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, stepData]);
+  }, [currentPage, stepData, queryParams]);
+
+  // True when a prefillFromQuery param was present but matched no loaded option
+  // (e.g. a deep-linked opp already acted on). Drives an explanatory notice so
+  // the user understands why nothing is preselected. Null while step data for a
+  // dynamic field hasn't loaded yet, so no premature notice on the load page.
+  const prefillMiss = useMemo(() => {
+    if (!queryParams) return false;
+    for (const f of page.fields) {
+      if (!f.prefillFromQuery || !f.name) continue;
+      const qv = queryParams[f.prefillFromQuery];
+      if (!qv) continue;
+      if (f.optionsFrom) {
+        if (stepData === null) return false;
+        if (!optionValuesFromStepData(stepData, f).includes(qv)) return true;
+      }
+    }
+    return false;
+  }, [page.fields, stepData, queryParams]);
 
   // Ref-backed schema so RHF's resolver always validates against the current
   // set of visible/required fields (RHF captures the resolver at init and
@@ -339,6 +406,39 @@ export function FormShell({ schema }: { schema: FormSchema }) {
     form.reset(defaultValues(schema.pages[0].fields));
   }
 
+  // ── refresh (single-page GET forms only) ────────────────────────────────────
+
+  async function refresh() {
+    // Re-entrance guard: don't start a second refresh if one is already running.
+    // The disabled button state on the UI is a first line of defence; this guard
+    // covers programmatic calls or rapid double-clicks that bypass the DOM.
+    if (refreshing) return;
+
+    const page = schema.pages[0];
+    setRefreshing(true);
+    const res = await startForm(schema.slug, {}, page.resumeUrlPath, page.method, resolveTimeoutMs(schema, page));
+    setRefreshing(false);
+
+    if ("ok" in res) {
+      // BffError
+      setPhase({ kind: "error", message: res.message, status: res.status });
+      return;
+    }
+
+    if (res.pending) {
+      // Async path: n8n replied 202 — open SSE stream, same as onSubmit page-0.
+      setSessionId(res.sessionId);
+      handleSse(res.sessionId);
+      return;
+    }
+
+    // Sync result
+    if (res.done) {
+      setStepData(res.data);
+      setPhase({ kind: "done", data: res.data });
+    }
+  }
+
   // ── shake animation on invalid submit ────────────────────────────────────────
 
   function onInvalidSubmit() {
@@ -385,6 +485,14 @@ export function FormShell({ schema }: { schema: FormSchema }) {
               </div>
             </div>
           ) : null}
+
+          {isRefreshable && (
+            <button type="button" onClick={refresh} disabled={refreshing} aria-busy={refreshing}
+              className="mb-3 inline-flex items-center gap-2 border border-amber-400 text-amber-400 rounded px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          )}
 
           {schema.response && phase.data !== undefined && (
             <ResponsePanel responseConfig={schema.response} data={phase.data} />
@@ -504,6 +612,12 @@ export function FormShell({ schema }: { schema: FormSchema }) {
               onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
               className="mt-6 space-y-6"
             >
+              {prefillMiss && (
+                <p className="animate-error-in rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                  The item linked here is no longer available — select one
+                  below.
+                </p>
+              )}
               {resolvedFields.map((def, i) => {
                 if (isStaticField(def)) {
                   const StaticComponent = STATIC_FIELD_REGISTRY[def.type];
@@ -652,11 +766,19 @@ function resolveResponseValue(data: unknown, key: string): unknown {
 type ResolvedField = {
   key: string;
   label?: string;
-  format?: "heading" | "tags" | "list" | "transcript" | "copy";
+  format?: "heading" | "tags" | "list" | "transcript" | "copy" | "table";
   prose?: boolean;
   section?: string;
+  columns?: import("@/lib/schema").TableColumn[];
+  expand?: import("@/lib/schema").TableExpand[];
+  filters?: import("@/lib/schema").TableFilter[];
   /** null means "empty but should still render as —" */
-  value: string | string[] | Array<Record<string, string>> | null;
+  value:
+    | string
+    | string[]
+    | Array<Record<string, string>>
+    | Array<Record<string, unknown>>
+    | null;
 };
 
 /** A contiguous run of resolved fields sharing the same `section`. */
@@ -671,17 +793,24 @@ type FieldGroup = {
  */
 function normaliseValue(
   raw: unknown,
-  format?: "heading" | "tags" | "list" | "transcript" | "copy",
-): string | string[] | Array<Record<string, string>> | null {
+  format?: "heading" | "tags" | "list" | "transcript" | "copy" | "table",
+):
+  | string
+  | string[]
+  | Array<Record<string, string>>
+  | Array<Record<string, unknown>>
+  | null {
   if (raw === undefined || raw === null) return null;
   if (format === "transcript") {
     if (!Array.isArray(raw)) return null;
     // Drop superseded messages here so an all-superseded transcript normalises
     // to null (→ "—") instead of rendering an empty <ol> with a stray timeline bar.
-    const messages = (raw as Array<Record<string, string>>).filter(
-      (m) => m.status !== "superseded",
-    );
+    const messages = visibleMessages(raw as Array<Record<string, string>>);
     return messages.length ? messages : null;
+  }
+  if (format === "table") {
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    return raw; // array of row objects; TableRenderer (ResponseCell) consumes it
   }
   if (format === "copy") {
     // Copy surfaces a single copyable string; coerce arrays/objects explicitly
@@ -784,6 +913,9 @@ function ResponsePanel({
         format: f.format,
         prose: f.prose,
         section,
+        columns: f.columns,
+        expand: f.expand,
+        filters: f.filters,
         value,
       });
     }
@@ -807,8 +939,11 @@ function ResponsePanel({
 
   return (
     <div className="space-y-4">
-      {/* Accent-divider title — only when there are visible fields */}
-      {hasStructured && resolved.length > 0 && (
+      {/* Accent-divider title — only when there are visible fields and the
+          response header isn't explicitly suppressed (style: "none"). */}
+      {hasStructured &&
+        resolved.length > 0 &&
+        responseConfig.header?.style !== "none" && (
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-success/20" />
           <h3 className="label-tech text-primary text-[11px] tracking-[0.22em]">
@@ -862,18 +997,20 @@ function ResponsePanel({
  * heading / tags / list / prose values; a short scalar otherwise.
  */
 function ResponseCell({ field }: { field: ResolvedField }) {
-  const { key, label, format, prose, value } = field;
+  const { key, label, format, prose, value, columns, expand, filters } = field;
   const isEmpty = value === null;
   const isHeading = !isEmpty && format === "heading";
   const isList = !isEmpty && format === "list";
   const isTranscript = !isEmpty && format === "transcript";
   const isCopy = !isEmpty && format === "copy";
+  const isTable = !isEmpty && format === "table";
   const isTags =
     !isEmpty &&
     !isHeading &&
     !isList &&
     !isTranscript &&
     !isCopy &&
+    !isTable &&
     (Array.isArray(value) || format === "tags");
   const isProse =
     !isEmpty &&
@@ -885,13 +1022,23 @@ function ResponseCell({ field }: { field: ResolvedField }) {
     prose === true;
 
   const fullWidth =
-    isHeading || isTags || isList || isTranscript || isCopy || prose === true;
+    isHeading ||
+    isTags ||
+    isList ||
+    isTranscript ||
+    isCopy ||
+    isTable ||
+    prose === true;
 
   return (
     <div className={fullWidth ? "sm:col-span-2" : undefined}>
-      <dt className="label-tech mb-1 text-[9px] text-muted-foreground/60">
-        {label ?? key}
-      </dt>
+      {/* The table carries its own header/filters chrome — the field-key label
+          ("opps") would just be noise above it. */}
+      {!isTable && (
+        <dt className="label-tech mb-1 text-[9px] text-muted-foreground/60">
+          {label ?? key}
+        </dt>
+      )}
       {isHeading ? (
         <dd className="text-xl font-semibold text-primary leading-snug break-words">
           {String(value)}
@@ -933,42 +1080,23 @@ function ResponseCell({ field }: { field: ResolvedField }) {
         </dd>
       ) : isTranscript ? (
         <dd>
-          <ol className="transcript">
-            {(value as Array<Record<string, string>>).map((m, i) => {
-              const dir =
-                m.direction === "inbound"
-                  ? "in"
-                  : m.status === "draft"
-                    ? "draft"
-                    : "out";
-              const who =
-                dir === "in"
-                  ? "← recruiter"
-                  : dir === "draft"
-                    ? "draft"
-                    : "→ you";
-              const meta = [who, m.channel, m.status, m.ts]
-                .filter(Boolean)
-                .join(" · ");
-              return (
-                <li key={m.ts ?? i} className="transcript-row">
-                  <span className={`transcript-dot ${dir}`} aria-hidden />
-                  <div>
-                    <div className="label-tech text-[10px] mb-0.5 text-muted-foreground">
-                      {meta}
-                    </div>
-                    <div className="text-sm text-foreground/90 break-words leading-snug">
-                      {m.body}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+          <Transcript messages={value as Array<Record<string, string>>} />
         </dd>
       ) : isCopy ? (
         <dd>
           <CopyBox text={String(value)} />
+        </dd>
+      ) : isTable ? (
+        <dd className="col-span-full">
+          {/* Rows arrive as opaque n8n payload (Array<Record<string,unknown>>);
+              the registered cell/section renderers (selected by col.kind) own
+              the row shape. Unconfigured kinds fall back to plain values. */}
+          <TableRenderer
+            rows={(value as unknown as Row[]) ?? []}
+            columns={columns ?? []}
+            expand={expand ?? []}
+            filters={filters ?? []}
+          />
         </dd>
       ) : (
         <dd

@@ -17,7 +17,14 @@ export default defineConfig({
     // the route handlers — are covered by the separate `bun test` suite (see
     // bunfig.toml + src/server/**/*.bun.test.ts). Exclude the Bun specs so
     // vitest never tries to load them.
-    exclude: [...configDefaults.exclude, "src/server/**/*.bun.test.ts"],
+    // `docs/` is gitignored working-docs (designs/scratch). It can contain
+    // node:test-format `*.test.mjs` files that vitest's glob would otherwise
+    // pick up and fail to parse as suites — exclude the whole tree.
+    exclude: [
+      ...configDefaults.exclude,
+      "src/server/**/*.bun.test.ts",
+      "docs/**",
+    ],
     setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",

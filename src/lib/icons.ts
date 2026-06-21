@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Briefcase,
   Target,
+  LayoutList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const ICON_REGISTRY: Record<string, LucideIcon> = {
   ClipboardList,
   Briefcase,
   Target,
+  LayoutList,
 };
 
 /** Names already warned about, so a misspelling logs once rather than per render. */

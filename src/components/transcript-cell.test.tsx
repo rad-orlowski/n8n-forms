@@ -78,6 +78,26 @@ describe("format:transcript", () => {
     expect(document.querySelector("ol.transcript")).toBeNull();
     expect(screen.getByText("—")).toBeInTheDocument();
   });
+
+  it("renders message body HTML (sanitized), not literal tags", () => {
+    render(
+      <ResponsePanel
+        responseConfig={{ fields: [{ key: "messages", format: "transcript" }] }}
+        data={{
+          messages: [
+            {
+              ts: "1",
+              direction: "inbound",
+              channel: "email",
+              status: "",
+              body: "<b>Bold</b>",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Bold").tagName).toBe("B");
+  });
 });
 
 describe("format:copy", () => {

@@ -1,4 +1,4 @@
-# Consulting ADRs
+## Consulting ADRs
 
 This directory contains Architecture Decision Records (ADRs) — binding records
 of significant architectural and process decisions for this project.
@@ -26,6 +26,7 @@ Do not edit `README.md` or `.adr-index.json` by hand.
 | ID | Title | Status | Applies to | Tags |
 | --- | --- | --- | --- | --- |
 | [ADR-0002](0002-keep-contract-mirroring-docs-in-sync.md) | Update contract-mirroring docs in the same change that alters the contract | accepted | src/lib/schema.ts, forms/**, src/components/fields/**, src/server/** | docs, process, contract |
+| [ADR-0010](0010-framework-src-domain-agnostic.md) | Keep the framework src/ domain-agnostic; register form-specific rendering | accepted | src/**/*.ts, src/**/*.tsx, src/components/table/** | architecture, boundary, framework |
 
 ## Archived
 

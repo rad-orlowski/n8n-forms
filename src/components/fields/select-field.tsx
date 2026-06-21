@@ -11,6 +11,7 @@ import type { FieldComponentProps, FieldOption } from "@/lib/schema";
 import { StepDataContext } from "@/components/StepDataContext";
 import { SelectedItemsContext } from "@/components/SelectedItemsContext";
 import { useValueFromField } from "@/hooks/useValueFromField";
+import { isSpuriousEmptyChange } from "./select-field.helpers";
 
 export function SelectField({ field, def }: FieldComponentProps) {
   // When optionsFrom is set, pull options from the step data returned by n8n.
@@ -58,6 +59,10 @@ export function SelectField({ field, def }: FieldComponentProps) {
   }
 
   function handleChange(value: string) {
+    // Ignore Radix's spurious mount-time empty-clear (see isSpuriousEmptyChange),
+    // which would otherwise clobber a preselected value. A genuine clear still
+    // propagates.
+    if (isSpuriousEmptyChange(value, field.value, options)) return;
     field.onChange(value);
     // Publish the full raw item to SelectedItemsContext so sibling fields
     // can reactively prefill via valueFromField.

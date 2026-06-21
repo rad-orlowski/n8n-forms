@@ -63,6 +63,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
+    "dompurify": "^3.4.11",
     "embla-carousel-react": "^8.6.0",
     "es-toolkit": "^1.47.0",
     "expr-eval-fork": "^3.0.3",
@@ -122,6 +123,9 @@
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
     "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "undici": "^7.28.0"
   },
   "scriptDescriptions": {
     "build": "Compile TypeScript + bundle SPA → `dist/`",

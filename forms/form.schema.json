@@ -119,6 +119,9 @@
                 "valueFromField": {
                   "type": "string"
                 },
+                "prefillFromQuery": {
+                  "type": "string"
+                },
                 "visibleIf": {
                   "type": "string"
                 },
@@ -230,7 +233,8 @@
                   "tags",
                   "list",
                   "transcript",
-                  "copy"
+                  "copy",
+                  "table"
                 ]
               },
               "prose": {
@@ -241,6 +245,77 @@
               },
               "hideIfEmpty": {
                 "type": "boolean"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "sortable": {
+                      "type": "boolean"
+                    },
+                    "align": {
+                      "type": "string",
+                      "enum": [
+                        "left",
+                        "right"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "expand": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [

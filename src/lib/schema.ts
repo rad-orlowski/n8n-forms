@@ -33,6 +33,13 @@ export const FieldDefSchema = z.object({
   optionLabel: z.array(z.string()).optional(),
   optionValue: z.string().optional(),
   valueFromField: z.string().optional(),
+  /**
+   * Seed this field's initial value from a URL query param of the given name
+   * (e.g. `prefillFromQuery: "opp"` reads `#/act?opp=…`). For a dynamic select
+   * the value is only applied when it matches a loaded option (stale-value
+   * guard). Reads the URL, not n8n step data, so it's allowed on any page.
+   */
+  prefillFromQuery: z.string().optional(),
   /** Declarative visibility expression — evaluated in Stage C. */
   visibleIf: z.string().optional(),
   /** Declarative conditional-required expression — evaluated in Stage C. */
@@ -59,13 +66,42 @@ export const PageDefSchema = z.object({
 });
 export type PageDef = z.infer<typeof PageDefSchema>;
 
+export const TableColumnSchema = z.object({
+  key: z.string(),
+  label: z.string().optional(),
+  sortable: z.boolean().optional(),
+  align: z.enum(["left", "right"]).optional(),
+  /** Name of a registered cell renderer (see components/table/registry.ts). */
+  kind: z.string().optional(),
+});
+export type TableColumn = z.infer<typeof TableColumnSchema>;
+
+export const TableExpandSchema = z.object({
+  key: z.string(),
+  label: z.string().optional(),
+  /** Name of a registered section renderer (see components/table/registry.ts). */
+  kind: z.string().optional(),
+});
+export type TableExpand = z.infer<typeof TableExpandSchema>;
+
+export const TableFilterSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+});
+export type TableFilter = z.infer<typeof TableFilterSchema>;
+
 export const ResponseFieldSchema = z.object({
   key: z.string(),
   label: z.string().optional(),
-  format: z.enum(["heading", "tags", "list", "transcript", "copy"]).optional(),
+  format: z
+    .enum(["heading", "tags", "list", "transcript", "copy", "table"])
+    .optional(),
   prose: z.boolean().optional(),
   section: z.string().optional(),
   hideIfEmpty: z.boolean().optional(),
+  columns: z.array(TableColumnSchema).optional(),
+  expand: z.array(TableExpandSchema).optional(),
+  filters: z.array(TableFilterSchema).optional(),
 });
 
 export const ResponseHeaderSchema = z.object({
