@@ -4,10 +4,30 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built with Bun](https://img.shields.io/badge/built%20with-bun-000000?logo=bun&logoColor=white)](https://bun.sh)
 
-A React form console backed by a **Hono/Bun BFF server**. Forms submit to the
-BFF, which holds webhook secrets server-side and proxies traffic to
-[n8n](https://n8n.io). Supports multi-page (wizard) forms, async results via
-SSE, and dynamic field values fed back from n8n at runtime.
+A React form console backed by a **Hono/Bun BFF server**. Define forms in
+JSON5 or YAML, drop them in `forms/`, and the BFF serves them — webhook URLs
+stay on the server, never in the browser.
+
+**Key capabilities:**
+
+- **Multi-page wizard forms** — each page submit calls n8n; the BFF threads the
+  `resumeUrl` session state so the browser never sees it
+- **Sync + async results** — n8n can reply with a body (sync) or `202` + SSE
+  callback (long-running tasks)
+- **Dynamic fields** — n8n's reply populates select options (`optionsFrom`) and
+  prefills values (`valueFrom`) on the next page
+- **Conditional fields** — `visibleIf` / `requiredIf` expressions hide or
+  require fields based on sibling values; hidden fields are excluded from the
+  payload
+- **Deep-link prefill** — `prefillFromQuery` seeds a field from a URL hash
+  query param (e.g. `#/my-form?opp=123`)
+- **Rich response panel** — render n8n's JSON reply as headings, tag chips,
+  checklists, transcript timelines, copyable text, or sortable/filterable tables
+- **14 built-in field types** — text, email, url, textarea, number, select,
+  checkbox, date, rating, rich-text (TipTap), segmented, heading, description,
+  alert, image
+- **External forms directory** — point `FORMS_DIR` at a gitignored path to keep
+  personal forms out of the repo entirely
 
 ![Form console home — a dark, amber-accented grid of available forms](docs/images/grid.png)
 
@@ -21,14 +41,14 @@ SSE, and dynamic field values fed back from n8n at runtime.
    the BFF.
 3. The browser submits answers to the BFF (`/api/forms/:slug/start`, then
    `/api/sessions/:id/step` for each subsequent page). The BFF holds webhook
-   URLs and form tokens — they are never sent to the browser.
+   URLs — they are never sent to the browser.
 4. n8n receives the proxied request and can return data synchronously or
    asynchronously (202 + SSE callback). Multi-page forms resume the n8n
    execution via the Wait-node `resumeUrl` stored server-side.
 
-> **Secrets stay on the server.** Webhook URLs and form tokens live in `.env`
-> — they are read by the Bun process at runtime, not baked into the JS bundle.
-> Keep `.env` out of git (it is gitignored).
+> **Secrets stay on the server.** Webhook URLs live in `.env` — they are read
+> by the Bun process at runtime, not baked into the JS bundle. Keep `.env` out
+> of git (it is gitignored).
 
 ## Screenshots
 
@@ -43,10 +63,9 @@ SSE, and dynamic field values fed back from n8n at runtime.
 
 ---
 
-> **WARNING: `.env` contains your secrets.** Webhook URLs and form tokens are
-> read by the server at runtime — never commit `.env`, never share it, and
-> treat it like a private key. If compromised, rotate the webhook URLs in n8n
-> and update `.env`.
+> **WARNING: `.env` contains your secrets.** Webhook URLs are read by the
+> server at runtime — never commit `.env`, never share it, and treat it like a
+> private key. If compromised, rotate the webhook URLs in n8n and update `.env`.
 
 ---
 
@@ -62,7 +81,7 @@ SSE, and dynamic field values fed back from n8n at runtime.
 ### Setup
 
 ```bash
-cp .env.example .env          # fill in webhook URLs + form tokens
+cp .env.example .env          # fill in webhook URLs
 bun install
 ```
 
@@ -75,7 +94,7 @@ bun dev
 One terminal. Starts the BFF (Hono/Bun) with Vite in middleware mode — HMR
 works, `/api/*` routes are live, everything on a single port.
 
-Navigate to `http://localhost:3737/#/<slug>?t=<FORM_TOKEN_SLUG>`.
+Navigate to `http://localhost:3737/#/<slug>` (e.g. `/#/ping`).
 
 ### Production
 
@@ -101,8 +120,7 @@ docker compose up    # builds the image and starts the server
 ├── src/
 │   ├── server/             # Hono BFF server
 │   │   ├── index.ts        # entry point — serves dist/ + /api/*
-│   │   ├── config.ts       # env loading (WEBHOOK_*, FORM_TOKEN_*, PORT)
-│   │   ├── auth.ts         # constant-time token validation
+│   │   ├── config.ts       # env loading (WEBHOOK_*, PORT, FORMS_DIR)
 │   │   ├── db.ts           # bun:sqlite session store
 │   │   ├── n8n.ts          # n8n proxy helper (sync + 202/SSE)
 │   │   ├── events.ts       # in-process SSE subscriber registry
@@ -118,7 +136,7 @@ docker compose up    # builds the image and starts the server
 │   └── index.css           # "industrial control panel" dark theme (charcoal/amber)
 ├── Dockerfile              # multi-stage oven/bun build + runtime
 ├── docker-compose.yml      # one service, env_file: .env, restart: unless-stopped
-├── .env.example            # WEBHOOK_*, FORM_TOKEN_*, PORT template
+├── .env.example            # WEBHOOK_*, PORT, FORMS_DIR template
 └── docs/
     └── n8n-contract.md     # n8n workflow contract for integrators
 ```
@@ -155,11 +173,10 @@ dev server.
    }
    ```
 
-2. **Add the env keys** to `.env` and `.env.example`:
+2. **Add the env key** to `.env` and `.env.example`:
 
    ```env
    WEBHOOK_MY_FORM=https://YOUR-N8N-HOST/webhook/my-form
-   FORM_TOKEN_MY_FORM=change-me
    ```
 
 The full form schema is the source of truth in

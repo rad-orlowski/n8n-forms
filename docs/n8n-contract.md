@@ -131,8 +131,8 @@ correct SSE subscriber. If it is absent the callback is dropped.
 The `data` object returned by n8n is made available to the *next* page's fields
 via dot-path bindings in the form schema:
 
-```ts
-// forms/my-form.form.ts
+```json5
+// forms/my-form.form.json5 — pages array excerpt
 pages: [
   { fields: [/* page 0 — no dynamic bindings */] },
   {

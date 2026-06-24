@@ -11,28 +11,24 @@ Instead, use GitHub's private vulnerability reporting:
 I'll acknowledge reports as soon as I'm able and work with you on a fix and
 coordinated disclosure.
 
-## Important: how this project handles secrets
+## How this project handles secrets
 
-This is a build-time-inlined, serverless tool. Understanding its model avoids
-mistaking expected behavior for a vulnerability:
+n8n-forms uses a **BFF (Backend-for-Frontend) server model**. Understanding this
+avoids mistaking expected behaviour for a vulnerability:
 
-- **The built `forms.html` contains every webhook URL in plaintext.** This is by
-  design — the file is portable and runs from `file://` with no server. Treat the
-  built file like a private key: never commit it, never share it publicly, and
-  distribute it only to trusted recipients over secure channels.
-- **n8n Webhook nodes require `Allowed Origins = *`** so the page works from a
-  `null` (`file://`) origin. This means any website can POST to your webhooks.
-  Mitigate inside each n8n workflow with payload validation, rate limiting, and
-  monitoring. Keep webhook URLs secret.
+- **Webhook URLs never leave the server.** `WEBHOOK_<SLUG>` values live in `.env`
+  and are read by the Bun/Hono process at runtime. They are not inlined into the
+  JS bundle and are never sent to the browser.
+- **All n8n calls are server-to-server.** The browser only talks to `/api/*` on
+  the BFF; it never contacts n8n directly. n8n's `Allowed Origins` can (and
+  should) be restricted to the BFF's host in production — `*` is not required.
 - **The source code and `forms/*.form.json5` definitions are safe to publish** —
-  they contain no webhook URLs (those live only in `.env`, read server-side at
-  runtime).
-
-See the **CORS & security implications** and **inlined secrets** sections of the
-[README](./README.md) for the full picture.
+  they contain no webhook URLs.
+- **`.env` is a private key.** If compromised, rotate webhook URLs in n8n and
+  update `.env`. The file is gitignored; never commit it or share it.
 
 ## Scope
 
-In scope: the form app code in this repository. Out of scope: your own n8n
-instance, workflow configuration, and how you distribute the built `forms.html`
-— those are operational concerns on your side.
+In scope: the form app code and BFF server in this repository.
+Out of scope: your n8n instance, workflow configuration, and how you deploy or
+restrict access to the BFF — those are operational concerns on your side.
