@@ -52,7 +52,8 @@ import type { Row } from "./table/registry";
 // Loads form-supplied table renderer extensions (registers cell/section
 // renderers by name) before any table renders. Generic — no domain knowledge.
 import "./table/extensions";
-import { Transcript, visibleMessages } from "./Transcript";
+import { Transcript } from "./Transcript";
+import { visibleMessages } from "./transcript-utils";
 
 // ── response panel defaults ────────────────────────────────────────────────────
 

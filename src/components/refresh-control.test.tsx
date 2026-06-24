@@ -66,7 +66,7 @@ describe("Refresh control", () => {
 
   it("opens the SSE event stream when refresh returns pending", async () => {
     // Fake EventSource that lets us trigger events manually
-    let capturedListeners: Record<string, (e: MessageEvent) => void> = {};
+    const capturedListeners: Record<string, (e: MessageEvent) => void> = {};
     const fakeEs = {
       addEventListener: vi.fn((type: string, handler: (e: MessageEvent) => void) => {
         capturedListeners[type] = handler;

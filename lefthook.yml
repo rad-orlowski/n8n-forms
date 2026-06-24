@@ -40,6 +40,10 @@ commit-msg:
 
 pre-push:
   commands:
+    lint:
+      # Full-project lint on push — pre-commit only lints staged files, so
+      # errors in already-committed files would otherwise reach CI unchecked.
+      run: bun run lint
     docs-check:
       # Safety net: catches --no-verify bypasses. Regenerates docs and fails
       # if any .md files were stale (meaning someone committed without running
